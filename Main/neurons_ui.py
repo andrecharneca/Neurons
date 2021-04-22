@@ -79,7 +79,7 @@ class NewModelPopupWindow(QWidget):
         outputDim = outputCol_end - outputCol_start + 1
 
         model.add(Dense(inputDim, input_dim=inputDim, activation='relu', name = 'input'))
-        model.add(Dense(3, activation='relu', name = 'input')) #name = 'dense' by default, then 'dense_1', etc
+        model.add(Dense(3, activation='relu', name = 'output')) #name = 'dense' by default, then 'dense_1', etc
         print(model.layers[1].name) ###
         self.close()
 
@@ -248,6 +248,7 @@ def validColumns(inputStart, inputEnd,outputStart, outputEnd, totalCols):
 
     if inputEnd >= inputStart and outputEnd>=outputStart and (outputStart > inputEnd or inputStart > outputEnd) \
             and max([inputStart, inputEnd, outputStart, outputEnd]) <= (totalCols - 1):
+
         return True
     else:
         return False
@@ -320,14 +321,14 @@ window.setCentralWidget(widget)
 ## Variables ##
 
 # File paths
-trainFile_path = "C:/Users/André/PycharmProjects/LID/Stocks/diabetes_data.txt"
+trainFile_path = "../Data/diabetes_data.txt"
 testFile_path = None
 
 #Input/Output columns
 inputCol_start = 0
 inputCol_end = 0
-outputCol_start = 1 #change
-outputCol_end = 1   #change
+outputCol_start = 0
+outputCol_end = 0
 inputNumber = 0
 outputNumber = 0
 
@@ -501,5 +502,6 @@ list_layers.addItem("test item")
 app.setStyleSheet(qdarkstyle.load_stylesheet())
 app.setStyleSheet("")
 
-window.show()
-app.exec_()
+if __name__ == "__main__":
+    window.show()
+    app.exec_()
