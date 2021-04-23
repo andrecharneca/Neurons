@@ -26,9 +26,9 @@ class NewModelPopupWindow(QWidget):
     def __init__(self):
         QWidget.__init__(self)
         mainLayout = QGridLayout(widget)
+        self.setLayout(mainLayout)
 
         self.name = 'new_model'
-        self.setLayout(mainLayout)
 
         vbox_main = QVBoxLayout(self)
         hbox_newModel = QHBoxLayout(self)
@@ -79,9 +79,62 @@ class NewModelPopupWindow(QWidget):
         outputDim = outputCol_end - outputCol_start + 1
 
         model.add(Dense(inputDim, input_dim=inputDim, activation='relu', name = 'input'))
-        model.add(Dense(3, activation='relu', name = 'output')) #name = 'dense' by default, then 'dense_1', etc
-        print(model.layers[1].name) ###
+        model.add(Dense(outputDim, activation='relu', name = 'output')) #name = 'dense' by default, then 'dense_1', etc
+
         self.close()
+
+class EditLayerPopupWindow(QWidget):
+    def __init__(self, listItem):
+        QWidget.__init__(self)
+        mainLayout = QGridLayout(widget)
+        self.setLayout(mainLayout)
+
+        vbox = QVBoxLayout(self)
+        hbox_activation = QHBoxLayout(self)
+        hbox_neurons = QHBoxLayout(self)
+        hbox_buttons = QHBoxLayout(self)
+
+        self.activationFunction = QComboBox(self)
+        self.activationFunction.addItems(activationFunctionList)
+        self.activationLabel = QLabel("Activation Function:",self)
+
+        self.neurons = QSpinBox(self)
+        self.neurons.setValue(10)
+        self.neurons.setMinimum(0)
+        self.neuronsLabel = QLabel("Neurons:",self)
+
+        self.itemName = listItem.text()
+        self.label = QLabel("Edit " + self.itemName + " properties.")
+        self.label.setAlignment(Qt.AlignCenter)
+
+        pushButton_cancel = QPushButton("Cancel", self)
+        pushButton_cancel.clicked.connect(self.close)
+
+        pushButton_saveEdit = QPushButton("Save Edit", self)
+        pushButton_saveEdit.clicked.connect(self.make_changes)
+
+        hbox_activation.addWidget(self.activationLabel)
+        hbox_activation.addWidget(self.activationFunction)
+        hbox_neurons.addWidget(self.neuronsLabel)
+        hbox_neurons.addWidget(self.neurons)
+        hbox_buttons.addWidget(pushButton_saveEdit)
+        hbox_buttons.addWidget(pushButton_cancel)
+
+        vbox.addWidget(self.label)
+        vbox.addLayout(hbox_neurons)
+        vbox.addLayout(hbox_activation)
+        vbox.addLayout(hbox_buttons)
+
+        mainLayout.addLayout(vbox,0,0,0,0)
+
+    def make_changes(self):
+        global model
+        model.get_layer(name = "input").activation = activationFunctionDict[self.activationFunction.currentText()]
+
+        print(model.get_config()) ###
+
+        self.close()
+
 
 
 ## File functions ##
@@ -232,7 +285,7 @@ def test_network():
         code
         """
         textBrowser.clear()
-        print("file worked")    #change
+        print("file worked")    ###
 
     elif not validPath(testFile_path):
         error = QErrorMessage()
@@ -253,8 +306,9 @@ def validColumns(inputStart, inputEnd,outputStart, outputEnd, totalCols):
     else:
         return False
 
-#Input Output spinBoxes function
+
 def update_inputCols():
+    """Input spinBoxes function"""
     global inputCol_start
     global inputCol_end
 
@@ -262,15 +316,28 @@ def update_inputCols():
     inputCol_end = spinBox_inputEnd.value()
 
 def update_outputCols():
+    """Output spinBoxes function"""
     global outputCol_start
     global outputCol_end
 
     outputCol_start = spinBox_outputStart.value()
     outputCol_end = spinBox_outputEnd.value()
-    print(outputCol_start, outputCol_end)   #change
+    print(outputCol_start, outputCol_end)   ###
+
+## Layers Functions ##
+
+def edit_InputLayer():
+    """Edit input layer"""
+    print(model.get_config()) ###
+    """Add: if model has been created:"""
+    global editPopup
+    editPopup = EditLayerPopupWindow(list_inputLayer.currentItem())
+    editPopup.setGeometry(QRect(400, 400, 100, 100))
+    editPopup.setWindowTitle("Edit " + list_inputLayer.currentItem().text())
+
+    editPopup.show()
 
 ## MenuBar Functions ##
-
 
 def new_Model():
     """creates new model"""
@@ -288,8 +355,6 @@ def new_Model():
         popupWindow.setGeometry(QRect(400, 400, 100, 100))
         popupWindow.setWindowTitle("New model")
         popupWindow.show()
-
-        print('inside new_model')
 
     elif not validPath(trainFile_path):
         error = QErrorMessage()
@@ -312,7 +377,7 @@ app = QApplication([])
 app.setApplicationName("Neurons 1.0")
 
 window = QMainWindow()
-window.setGeometry(500,500,600,300) #(position xy, size xy)
+window.setGeometry(500,500,800,300) #(position xy, size xy)
 
 widget = QWidget(window)
 
@@ -337,6 +402,11 @@ model = None
 model_name = 'default_model'
 popupWindow = None
 
+#Layers
+activationFunctionList = ["ReLu", "Sigmoid", "SoftMax", "SoftPlus", "SoftSign", "Tanh", "SeLu", "Elu", "Exponential"]
+activationFunctionDict = {"ReLu": tf.keras.activations.relu, "Sigmoid": tf.keras.activations.sigmoid, "SoftMax": tf.keras.activations.softmax,
+                          "SoftPlus": tf.keras.activations.softplus, "SoftSign": tf.keras.activations.softsign, "Tanh": tf.keras.activations.tanh,
+                          "SeLu": tf.keras.activations.selu, "Elu": tf.keras.activations.elu, "Exponential": tf.keras.activations.exponential}
 ## Items ##
 
 #Train and test
@@ -347,7 +417,7 @@ label_outputColumns = QLabel("Output Columns:", widget)
 label_ToIn = QLabel("to", widget)
 label_ToOut = QLabel("to", widget)
 
-lineEdit_trainFile = QLineEdit("C:/Users/André/PycharmProjects/LID/Stocks/diabetes_data.txt",widget)
+lineEdit_trainFile = QLineEdit("../Data/diabetes_data.txt",widget)
 lineEdit_testFile = QLineEdit("Path to .txt testing file",widget)
 
 pushButton_trainFile = QPushButton("Browse", widget)
@@ -367,7 +437,17 @@ textBrowser = QTextBrowser(widget)
 #Layers List Widget
 list_layers = QListWidget(widget)
 
-label_layers = QLabel("Layers:", widget)
+list_inputLayer = QListWidget(widget)
+list_inputLayer.setFixedHeight(20)
+list_inputLayer.addItem("Input")
+
+list_outputLayer = QListWidget(widget)
+list_outputLayer.setFixedHeight(20)
+list_outputLayer.addItem("Output")
+
+label_layers = QLabel("Layers", widget)
+label_layers.setAlignment(Qt.AlignCenter)
+label_hiddenLayers = QLabel("Hidden Layers:", widget)
 
 pushButton_addLayer = QPushButton("Add", widget)
 pushButton_deleteLayer = QPushButton("Delete", widget)
@@ -388,6 +468,7 @@ pushButton_train.pressed.connect(train_network)
 pushButton_test.pressed.connect(test_network)
 
 #Add, delete, edit pushButtons
+list_inputLayer.doubleClicked.connect(edit_InputLayer)
 
 #Input Output spinBoxes
 spinBox_inputStart.valueChanged.connect(update_inputCols)
@@ -450,7 +531,10 @@ vbox_files.addLayout(hbox_trainTestButtons)
 #Layers List Hbox
 vbox_layers = QVBoxLayout()
 vbox_layers.addWidget(label_layers)
+vbox_layers.addWidget(list_inputLayer)
+vbox_layers.addWidget(label_hiddenLayers)
 vbox_layers.addWidget(list_layers)
+vbox_layers.addWidget(list_outputLayer)
 vbox_layers.addLayout(hbox_layerButtons)
 
 #Main VBox
@@ -498,6 +582,7 @@ window.setLayout(mainLayout)
 
 ## Testing ##
 list_layers.addItem("test item")
+
 
 app.setStyleSheet(qdarkstyle.load_stylesheet())
 app.setStyleSheet("")
