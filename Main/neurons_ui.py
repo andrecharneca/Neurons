@@ -69,21 +69,31 @@ class NewModelPopupWindow(QWidget):
         """create new model"""
         global model_name
         global model
+        global hidden_layers
+
+
 
         """INSERT CHECK FOR VALID NAME"""
         """INSERT WARNING IF UNSAVED MODEL"""
+
         tf.keras.backend.clear_session()
+        #Initialize new model
+        hidden_layers = []
         model_name = self.name
         model = Sequential()
         inputDim = inputCol_end - inputCol_start + 1
         outputDim = outputCol_end - outputCol_start + 1
 
         model.add(Dense(inputDim, input_dim=inputDim, activation='relu', name = 'input'))
-        model.add(Dense(outputDim, activation='relu', name = 'output')) #name = 'dense' by default, then 'dense_1', etc
+        model.add(Dense(12, activation = 'relu', name = 'Layer_1')) ###?
+        model.add(Dense(outputDim, activation ='relu', name = 'output')) #name = 'dense' by default, then 'dense_1', etc
 
+        hidden_layers.append(model.layers[1])
+        update_hiddenLayersList(hidden_layers[0])
         self.close()
 
-class EditLayerPopupWindow(QWidget):
+class EditInputLayerPopupWindow(QWidget):
+    """Edit input layer popup window"""
     def __init__(self, listItem):
         QWidget.__init__(self)
         mainLayout = QGridLayout(widget)
@@ -129,12 +139,91 @@ class EditLayerPopupWindow(QWidget):
 
     def make_changes(self):
         global model
-        model.get_layer(name = "input").activation = activationFunctionDict[self.activationFunction.currentText()]
-
-        print(model.get_config()) ###
+        layer = model.get_layer(name = "input")
+        layer.activation = activationFunctionDict[self.activationFunction.currentText()]
+        layer.units = self.neurons.value()
+        print(layer.get_config()) ###
 
         self.close()
 
+class EditHiddenLayerPopupWindow(QWidget):
+    def __init__(self, listItem):
+        QWidget.__init__(self)
+        mainLayout = QGridLayout(widget)
+        self.setLayout(mainLayout)
+
+        self.listItem = listItem
+
+        vbox = QVBoxLayout(self)
+        hbox_lineEdit = QHBoxLayout(self)
+        hbox_activation = QHBoxLayout(self)
+        hbox_neurons = QHBoxLayout(self)
+        hbox_buttons = QHBoxLayout(self)
+
+        self.activationFunction = QComboBox(self)
+        self.activationFunction.addItems(activationFunctionList)
+        self.activationLabel = QLabel("Activation Function:",self)
+
+        self.neurons = QSpinBox(self)
+        self.neurons.setValue(10)
+        self.neurons.setMinimum(0)
+        self.neuronsLabel = QLabel("Neurons:",self)
+
+        self.lineEdit = QLineEdit(self)
+        self.lineEdit.setText(listItem.text())
+        self.lineEditLabel = QLabel("Layer name:")
+
+        #set bold text
+        myFont = QFont()
+        myFont.setBold(True)
+        self.noteName = QLabel("Note: layer name must be unique and can't contain spaces.")
+        self.noteName.setFont(myFont)
+
+        self.itemName = listItem.text()
+        self.label = QLabel("Edit " + self.itemName + " properties.")
+        self.label.setAlignment(Qt.AlignCenter)
+
+        pushButton_cancel = QPushButton("Cancel", self)
+        pushButton_cancel.clicked.connect(self.close)
+
+        pushButton_saveEdit = QPushButton("Save Edit", self)
+        pushButton_saveEdit.clicked.connect(self.make_changes)
+
+        hbox_lineEdit.addWidget(self.lineEditLabel)
+        hbox_lineEdit.addWidget(self.lineEdit)
+        hbox_activation.addWidget(self.activationLabel)
+        hbox_activation.addWidget(self.activationFunction)
+        hbox_neurons.addWidget(self.neuronsLabel)
+        hbox_neurons.addWidget(self.neurons)
+        hbox_buttons.addWidget(pushButton_saveEdit)
+        hbox_buttons.addWidget(pushButton_cancel)
+
+        vbox.addWidget(self.label)
+        vbox.addLayout(hbox_lineEdit)
+        vbox.addWidget(self.noteName)
+        vbox.addLayout(hbox_neurons)
+        vbox.addLayout(hbox_activation)
+        vbox.addLayout(hbox_buttons)
+
+        mainLayout.addLayout(vbox,0,0,0,0)
+
+    def make_changes(self):
+        global model
+        layer = model.get_layer(name = self.itemName)
+        if validLayerName(self.lineEdit.text(), self.itemName):
+            print("Name was valid!") ###
+
+            layer._name = self.lineEdit.text() #.name is not changeable, ._name is
+            layer.activation = activationFunctionDict[self.activationFunction.currentText()]
+            layer.units = self.neurons.value()
+            self.listItem.setText(self.lineEdit.text())
+
+            print(layer.get_config())###
+            self.close()
+        else:
+            error = QErrorMessage()
+            error.showMessage("Please insert valid layer name.")
+            error.exec()
 
 
 ## File functions ##
@@ -306,7 +395,6 @@ def validColumns(inputStart, inputEnd,outputStart, outputEnd, totalCols):
     else:
         return False
 
-
 def update_inputCols():
     """Input spinBoxes function"""
     global inputCol_start
@@ -326,16 +414,48 @@ def update_outputCols():
 
 ## Layers Functions ##
 
-def edit_InputLayer():
+def edit_inputLayer():
     """Edit input layer"""
-    print(model.get_config()) ###
+
     """Add: if model has been created:"""
     global editPopup
-    editPopup = EditLayerPopupWindow(list_inputLayer.currentItem())
+    editPopup = EditInputLayerPopupWindow(list_inputLayer.currentItem())
     editPopup.setGeometry(QRect(400, 400, 100, 100))
     editPopup.setWindowTitle("Edit " + list_inputLayer.currentItem().text())
 
     editPopup.show()
+
+def edit_hiddenLayer():
+    listItem = list_layers.currentItem()
+    global editHiddenPopup
+    editHiddenPopup = EditHiddenLayerPopupWindow(list_layers.currentItem())
+    editHiddenPopup.setGeometry(QRect(400, 400, 100, 100))
+    editHiddenPopup.setWindowTitle("Edit " + list_layers.currentItem().text())
+    editHiddenPopup.show()
+
+def update_hiddenLayersList(layer):
+    """Adds item to hidden layer list"""
+    list_layers.addItem(layer.name)
+
+def validLayerName(string, currentName):
+    """checks if layer name is valid
+    - no spaces
+    - no repeated layer names"""
+    valid = True
+
+    global hidden_layers
+    if string == currentName:
+        #If the name is unchanged it's okay
+        return True
+    for layer in hidden_layers:
+        if " " in string:
+            valid = False
+        #Check for other layers other than itself
+        elif layer.name != currentName:
+            if layer.name == string:
+                valid = False
+
+    return valid
 
 ## MenuBar Functions ##
 
@@ -399,6 +519,7 @@ outputNumber = 0
 
 #Model
 model = None
+hidden_layers = None
 model_name = 'default_model'
 popupWindow = None
 
@@ -468,7 +589,9 @@ pushButton_train.pressed.connect(train_network)
 pushButton_test.pressed.connect(test_network)
 
 #Add, delete, edit pushButtons
-list_inputLayer.doubleClicked.connect(edit_InputLayer)
+list_inputLayer.doubleClicked.connect(edit_inputLayer)
+
+list_layers.doubleClicked.connect(edit_hiddenLayer)
 
 #Input Output spinBoxes
 spinBox_inputStart.valueChanged.connect(update_inputCols)
