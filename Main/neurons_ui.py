@@ -25,8 +25,8 @@ class NewModelPopupWindow(QWidget):
 
     def __init__(self):
         QWidget.__init__(self)
-        mainLayout = QGridLayout(widget)
-        self.setLayout(mainLayout)
+        """mainLayout = QGridLayout(widget)
+        self.setLayout(mainLayout)"""
 
         self.name = 'new_model'
 
@@ -60,7 +60,7 @@ class NewModelPopupWindow(QWidget):
         vbox_main.addWidget(label_warning)
         vbox_main.addLayout(hbox_newModel)
         vbox_main.addLayout(hbox_buttons)
-        mainLayout.addLayout(vbox_main,0,0,0,0)
+        #mainLayout.addLayout(vbox_main,0,0,0,0)
 
     def change_path(self):
         self.name = self.lineEdit.text()
@@ -71,15 +71,14 @@ class NewModelPopupWindow(QWidget):
         global model
         global hidden_layers
 
-
-
         """INSERT CHECK FOR VALID NAME"""
         """INSERT WARNING IF UNSAVED MODEL"""
 
         tf.keras.backend.clear_session()
+
         #Initialize new model
         hidden_layers = []
-        model_name = self.name
+        model_name = self.lineEdit.text()
         model = Sequential()
         inputDim = inputCol_end - inputCol_start + 1
         outputDim = outputCol_end - outputCol_start + 1
@@ -96,8 +95,8 @@ class EditInputLayerPopupWindow(QWidget):
     """Edit input layer popup window"""
     def __init__(self, listItem):
         QWidget.__init__(self)
-        mainLayout = QGridLayout(widget)
-        self.setLayout(mainLayout)
+        """mainLayout = QGridLayout(widget)
+        self.setLayout(mainLayout)"""
 
         vbox = QVBoxLayout(self)
         hbox_activation = QHBoxLayout(self)
@@ -135,7 +134,7 @@ class EditInputLayerPopupWindow(QWidget):
         vbox.addLayout(hbox_activation)
         vbox.addLayout(hbox_buttons)
 
-        mainLayout.addLayout(vbox,0,0,0,0)
+        #mainLayout.addLayout(vbox,0,0,0,0)
 
     def make_changes(self):
         global model
@@ -149,8 +148,8 @@ class EditInputLayerPopupWindow(QWidget):
 class EditHiddenLayerPopupWindow(QWidget):
     def __init__(self, listItem):
         QWidget.__init__(self)
-        mainLayout = QGridLayout(widget)
-        self.setLayout(mainLayout)
+        """mainLayout = QGridLayout(widget)
+        self.setLayout(mainLayout)"""
 
         self.listItem = listItem
 
@@ -205,7 +204,7 @@ class EditHiddenLayerPopupWindow(QWidget):
         vbox.addLayout(hbox_activation)
         vbox.addLayout(hbox_buttons)
 
-        mainLayout.addLayout(vbox,0,0,0,0)
+        #mainLayout.addLayout(vbox,0,0,0,0)
 
     def make_changes(self):
         global model
@@ -221,9 +220,7 @@ class EditHiddenLayerPopupWindow(QWidget):
             print(layer.get_config())###
             self.close()
         else:
-            error = QErrorMessage()
-            error.showMessage("Please insert valid layer name.")
-            error.exec()
+            error = QMessageBox.warning(None, "Error", "\n   Please insert valid layer name.   \n")
 
 
 ## File functions ##
@@ -314,9 +311,9 @@ def validPath(path):
 #Update file names for lineEdits
 def update_trainPath():
     global trainFile_path
-    path = lineEdit_trainFile.text()
+    trainFile_path = lineEdit_trainFile.text()
 
-    #Checks if its valid path
+    """#Checks if its valid path
     if validPath(path):
         trainFile_path = path
         lineEdit_trainFile.setText(trainFile_path)
@@ -324,13 +321,13 @@ def update_trainPath():
     else:
         error = QErrorMessage()
         error.showMessage("Please select .txt file!")
-        error.exec()
+        error.exec()"""
 
 def update_testPath():
     global testFile_path
-    path = lineEdit_testFile.text()
+    testFile_path = lineEdit_testFile.text()
 
-    #Checks if its valid path
+    """#Checks if its valid path
     if validPath(path):
         testFile_path = path
         lineEdit_testFile.setText(testFile_path)
@@ -338,12 +335,11 @@ def update_testPath():
     else:
         error = QErrorMessage()
         error.showMessage("Please select .txt file!")
-        error.exec()
+        error.exec()"""
 
 ## Train/Test ##
-
-#Train/test button function
-def train_network(): #NOTE: add check to input and ouptut columns
+def train_network():
+    """Train button function"""
     try: trainData, columns = read_file(trainFile_path, ',')
     except:
         pass
@@ -357,15 +353,14 @@ def train_network(): #NOTE: add check to input and ouptut columns
         textBrowser.append(str(trainData[0])) ####
         textBrowser.append(str(columns))    ###
     elif not validPath(trainFile_path):
-        error = QErrorMessage()
-        error.showMessage("Please select a training file!")
-        error.exec()
+        error = QMessageBox.warning(None, "Error", "\n   Please select a training file.   \n")
+
     else:
-        error = QErrorMessage()
-        error.showMessage("Invalid Input or Output Columns.")
-        error.exec()
+        error = QMessageBox.warning(None, "Error", "\n   Invalid input or output columns.   \n")
+
 
 def test_network():
+    """Test button function"""
     try: testData, columns = read_file(testFile_path, ',')
     except:
         pass
@@ -377,17 +372,14 @@ def test_network():
         print("file worked")    ###
 
     elif not validPath(testFile_path):
-        error = QErrorMessage()
-        error.showMessage("Please select a testing file!")
-        error.exec()
+        error = QMessageBox.warning(None, "Error", "\n   Please select a testing file.   \n")
+
     else:
-        error = QErrorMessage()
-        error.showMessage("Invalid Input or Output Columns.")
-        error.exec()
+        error = QMessageBox.warning(None, "Error", "\n   Invalid input or output columns.   \n")
 
-#Checks if input/output columns are valid, given the file
+
 def validColumns(inputStart, inputEnd,outputStart, outputEnd, totalCols):
-
+    """Checks if input/output columns are valid, given the file"""
     if inputEnd >= inputStart and outputEnd>=outputStart and (outputStart > inputEnd or inputStart > outputEnd) \
             and max([inputStart, inputEnd, outputStart, outputEnd]) <= (totalCols - 1):
 
@@ -415,23 +407,27 @@ def update_outputCols():
 ## Layers Functions ##
 
 def edit_inputLayer():
-    """Edit input layer"""
+    """Edit input layer function"""
+    if validModel():
+        global editPopup
+        editPopup = EditInputLayerPopupWindow(list_inputLayer.currentItem())
+        editPopup.setGeometry(QRect(400, 400, 100, 100))
+        editPopup.setWindowTitle("Edit " + list_inputLayer.currentItem().text())
+        editPopup.show()
+    else:
+        error = QMessageBox.warning(None, "Error", "\n   Invalid model.   \n")
 
-    """Add: if model has been created:"""
-    global editPopup
-    editPopup = EditInputLayerPopupWindow(list_inputLayer.currentItem())
-    editPopup.setGeometry(QRect(400, 400, 100, 100))
-    editPopup.setWindowTitle("Edit " + list_inputLayer.currentItem().text())
-
-    editPopup.show()
 
 def edit_hiddenLayer():
-    listItem = list_layers.currentItem()
-    global editHiddenPopup
-    editHiddenPopup = EditHiddenLayerPopupWindow(list_layers.currentItem())
-    editHiddenPopup.setGeometry(QRect(400, 400, 100, 100))
-    editHiddenPopup.setWindowTitle("Edit " + list_layers.currentItem().text())
-    editHiddenPopup.show()
+    """Edit hidden layer function"""
+    if validModel():
+        global editHiddenPopup
+        editHiddenPopup = EditHiddenLayerPopupWindow(list_layers.currentItem())
+        editHiddenPopup.setGeometry(QRect(400, 400, 100, 100))
+        editHiddenPopup.setWindowTitle("Edit " + list_layers.currentItem().text())
+        editHiddenPopup.show()
+    else:
+        error = QMessageBox.warning(None,"Error","\n   Invalid model.   \n")
 
 def update_hiddenLayersList(layer):
     """Adds item to hidden layer list"""
@@ -457,6 +453,12 @@ def validLayerName(string, currentName):
 
     return valid
 
+def validModel():
+    """Checks if model is valid (has been created)"""
+    global model
+    if model == None:
+        return False
+    return True
 ## MenuBar Functions ##
 
 def new_Model():
@@ -477,13 +479,10 @@ def new_Model():
         popupWindow.show()
 
     elif not validPath(trainFile_path):
-        error = QErrorMessage()
-        error.showMessage("Please select a training file!")
-        error.exec()
+        error = QMessageBox.warning(None, "Error", "\n   Please select a training file.   \n")
     else:
-        error = QErrorMessage()
-        error.showMessage("Invalid Input or Output Columns.")
-        error.exec()
+        error = QMessageBox.warning(None, "Error", "\n   Invalid input or output columns.   \n")
+
 
 #Themes
 def set_darkTheme():
@@ -582,7 +581,10 @@ pushButton_testFile.pressed.connect(open_testFile) #open file browser
 
 #Train and test file lineEdits
 lineEdit_trainFile.returnPressed.connect(update_trainPath)
+lineEdit_trainFile.textChanged.connect(update_trainPath)
 lineEdit_testFile.returnPressed.connect(update_testPath)
+lineEdit_testFile.textChanged.connect(update_testPath)
+
 
 #Train and test pushButtons
 pushButton_train.pressed.connect(train_network)
