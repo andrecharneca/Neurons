@@ -7,19 +7,20 @@ import numpy as np
 import time
 
 #training data company name
-name = 'apple'
+name = 'activision'
 #number of days per row
 ndays = 10
 
 #load the dataset, using AAPL data from 2013-2018
-dataset = loadtxt('stocks_data_processed_' + name + '.txt', delimiter=',')
+dataset = loadtxt('../Data/diabetes_data.txt', delimiter=',')
 
 #split into input X and output Y, ndays is number of days per row
 
 x = dataset[:,0:2*ndays] #columns 0->ndays-1
 y = dataset[:,2*ndays] #column ndays
 
-accuracy_mean = 0
+print(x)
+"""accuracy_mean = 0
 n = 50
 
 #measure time in seconds
@@ -42,7 +43,7 @@ for i in range(n):
     print('Accuracy (it. %d): %.2f' % (i,accuracy*100))
     accuracy_mean += accuracy
 
-    """#save model to file if acc >98
+    #save model to file if acc >98
     if accuracy>=0.98:
         #save model to json file
         model_json = model.to_json()
@@ -52,7 +53,7 @@ for i in range(n):
         #save weights to h5 file
         model.save_weights("stocks_model_ndays2_e500_b10.h5")
         print("Model saved to json file.")
-        break"""
+        break
 
 
 #end timer
@@ -66,4 +67,4 @@ predictions = model.predict(x)
 rounded = [np.round(p) for p in predictions]
 #summarize first 5 cases
 for i in range(100,120):
-    print('%s -> %d (expected %d)' % (x[i].tolist(), rounded[i], y[i]))
+    print('%s -> %d (expected %d)' % (x[i].tolist(), rounded[i], y[i]))"""

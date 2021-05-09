@@ -8,6 +8,7 @@ import tensorflow as tf
 from tensorflow import keras
 from keras.models import Sequential
 from keras.layers import Dense
+from numpy import loadtxt
 
 ## Console output reading function ##
 """def run(cmd):
@@ -150,6 +151,14 @@ class EditHiddenLayerPopupWindow(QWidget):
         QWidget.__init__(self)
         """mainLayout = QGridLayout(widget)
         self.setLayout(mainLayout)"""
+        self.itemName = listItem.text()
+
+        global model
+        layer = model.get_layer(name=self.itemName)
+        current_neurons = layer.units
+        current_activationString = layer.get_config()['activation']
+        print(current_neurons) ###
+        print(current_activationString)###
 
         self.listItem = listItem
 
@@ -161,10 +170,11 @@ class EditHiddenLayerPopupWindow(QWidget):
 
         self.activationFunction = QComboBox(self)
         self.activationFunction.addItems(activationFunctionList)
+        self.activationFunction.setCurrentIndex(activationFunctionList_lowercase.index(current_activationString))
         self.activationLabel = QLabel("Activation Function:",self)
 
         self.neurons = QSpinBox(self)
-        self.neurons.setValue(10)
+        self.neurons.setValue(current_neurons)
         self.neurons.setMinimum(0)
         self.neuronsLabel = QLabel("Neurons:",self)
 
@@ -178,7 +188,6 @@ class EditHiddenLayerPopupWindow(QWidget):
         self.noteName = QLabel("Note: layer name must be unique and can't contain spaces.")
         self.noteName.setFont(myFont)
 
-        self.itemName = listItem.text()
         self.label = QLabel("Edit " + self.itemName + " properties.")
         self.label.setAlignment(Qt.AlignCenter)
 
@@ -338,20 +347,53 @@ def update_testPath():
         error.exec()"""
 
 ## Train/Test ##
+def get_inputOutput(path):
+    global inputCol_start, inputCol_end, outputCol_start, outputCol_end
+
+    """Get input and output lists with given input and output columns"""
+    data, columns = read_file(path, ',')
+    input = [[] for _ in range(inputCol_end-inputCol_start+1) ]
+    output = [[] for _ in range(outputCol_end-outputCol_start+1)]
+    #input
+    k = 0
+    for i in range(inputCol_start, inputCol_end+1):
+        input[k] = data[i]
+        k+=1
+    #output
+    k = 0
+    for i in range(outputCol_start, outputCol_end + 1):
+        output[k] = data[i]
+        k+=1
+    return input, output
+
 def train_network():
     """Train button function"""
-    try: trainData, columns = read_file(trainFile_path, ',')
+    ##INSERT CHECK FOR IF MODEL HAS BEEN CREATED, OR IF COLUMNS/FILE HAVE CHANGED
+    try: _, columns = read_file(trainFile_path, ',')
     except:
         pass
 
     if validPath(trainFile_path) and validColumns(inputCol_start, inputCol_end, outputCol_start, outputCol_end, columns):
-
-        """
-        code
-        """
+        trainData = loadtxt(trainFile_path, delimiter=',')
+        #input, output = get_inputOutput(trainFile_path)
+        input = trainData[:, inputCol_start:inputCol_end+1]
+        output = trainData[:, outputCol_start:outputCol_end+1]
         textBrowser.clear()
-        textBrowser.append(str(trainData[0])) ####
-        textBrowser.append(str(columns))    ###
+        textBrowser.append(str(input)) ####
+
+        ###Temporary training settings
+        textBrowser.append("Training, could take a while...")    ###
+
+        # compile Keras model, Cross Entropy loss function for binary classification, Adam algorithm for optimization
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+        # fit (train) the Keras model on the dataset
+        model.fit(input, output, epochs=20, batch_size=20, verbose=0)
+        _, accuracy = model.evaluate(input,output, verbose=0)
+
+        textBrowser.append('Accuracy: %.2f' % (accuracy * 100))    ###
+        textBrowser.append("Model Trained!")    ###
+
     elif not validPath(trainFile_path):
         error = QMessageBox.warning(None, "Error", "\n   Please select a training file.   \n")
 
@@ -459,6 +501,7 @@ def validModel():
     if model == None:
         return False
     return True
+
 ## MenuBar Functions ##
 
 def new_Model():
@@ -524,9 +567,11 @@ popupWindow = None
 
 #Layers
 activationFunctionList = ["ReLu", "Sigmoid", "SoftMax", "SoftPlus", "SoftSign", "Tanh", "SeLu", "Elu", "Exponential"]
+activationFunctionList_lowercase = ["relu", "sigmoid", "softmax", "softplus", "softsign", "tanh", "selu", "elu", "exponential"]
 activationFunctionDict = {"ReLu": tf.keras.activations.relu, "Sigmoid": tf.keras.activations.sigmoid, "SoftMax": tf.keras.activations.softmax,
                           "SoftPlus": tf.keras.activations.softplus, "SoftSign": tf.keras.activations.softsign, "Tanh": tf.keras.activations.tanh,
                           "SeLu": tf.keras.activations.selu, "Elu": tf.keras.activations.elu, "Exponential": tf.keras.activations.exponential}
+#inverted_activationFunctionDict = {value : key for (key, value) in activationFunctionDict.items()} #inverted dict
 ## Items ##
 
 #Train and test
