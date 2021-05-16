@@ -71,6 +71,7 @@ class NewModelPopupWindow(QWidget):
         global model_name
         global model
         global hidden_layers
+        global output_layer_settingsDict
 
         """INSERT CHECK FOR VALID NAME"""
         """INSERT WARNING IF UNSAVED MODEL"""
@@ -86,10 +87,14 @@ class NewModelPopupWindow(QWidget):
 
         model.add(Dense(inputDim, input_dim=inputDim, activation='relu', name = 'input'))
         model.add(Dense(12, activation = 'relu', name = 'Layer_1')) ###?
+
+        #Change output settings for Delete and Add buttons
         model.add(Dense(outputDim, activation ='relu', name = 'output')) #name = 'dense' by default, then 'dense_1', etc
+        output_layer_settingsDict["units"] = outputDim
+        output_layer_settingsDict["activation"] = "ReLu"
 
         hidden_layers.append(model.layers[1])
-        update_hiddenLayersList(hidden_layers[0])
+        update_hiddenLayersList()
         self.close()
 
 class EditInputLayerPopupWindow(QWidget):
@@ -471,9 +476,33 @@ def edit_hiddenLayer():
     else:
         error = QMessageBox.warning(None,"Error","\n   Invalid model.   \n")
 
-def update_hiddenLayersList(layer):
-    """Adds item to hidden layer list"""
-    list_layers.addItem(layer.name)
+def delete_hiddenLayer():
+    global model
+    if validModel():
+        if len(hidden_layers)!=0:
+            #Pops output AND last top layer in stack
+            model.pop()
+            model.pop()
+            hidden_layers.pop()
+            update_hiddenLayersList()
+
+            model.add(Dense(output_layer_settingsDict["units"], name = 'output'))
+            model.get_layer(name = "output").activation = activationFunctionDict[output_layer_settingsDict["activation"]]
+
+
+            print(model.summary())###
+
+    if not validModel():
+            error = QMessageBox.warning(None,"Error","\n   Invalid model.   \n")
+
+
+def update_hiddenLayersList():
+    """Updates hidden layers Qlist with hidden_layers list """
+    global hidden_layers
+
+    list_layers.clear()
+    for layer in hidden_layers:
+        list_layers.addItem(layer.name)
 
 def validLayerName(string, currentName):
     """checks if layer name is valid
@@ -501,6 +530,8 @@ def validModel():
     if model == None:
         return False
     return True
+
+
 
 ## MenuBar Functions ##
 
@@ -571,6 +602,7 @@ activationFunctionList_lowercase = ["relu", "sigmoid", "softmax", "softplus", "s
 activationFunctionDict = {"ReLu": tf.keras.activations.relu, "Sigmoid": tf.keras.activations.sigmoid, "SoftMax": tf.keras.activations.softmax,
                           "SoftPlus": tf.keras.activations.softplus, "SoftSign": tf.keras.activations.softsign, "Tanh": tf.keras.activations.tanh,
                           "SeLu": tf.keras.activations.selu, "Elu": tf.keras.activations.elu, "Exponential": tf.keras.activations.exponential}
+output_layer_settingsDict = {"units": 0, "activation": "ReLu"} #To save output settings for Add and Delete button methods
 #inverted_activationFunctionDict = {value : key for (key, value) in activationFunctionDict.items()} #inverted dict
 ## Items ##
 
@@ -603,11 +635,11 @@ textBrowser = QTextBrowser(widget)
 list_layers = QListWidget(widget)
 
 list_inputLayer = QListWidget(widget)
-list_inputLayer.setFixedHeight(20)
+list_inputLayer.setFixedHeight(25)
 list_inputLayer.addItem("Input")
 
 list_outputLayer = QListWidget(widget)
-list_outputLayer.setFixedHeight(20)
+list_outputLayer.setFixedHeight(25)
 list_outputLayer.addItem("Output")
 
 label_layers = QLabel("Layers", widget)
@@ -615,8 +647,8 @@ label_layers.setAlignment(Qt.AlignCenter)
 label_hiddenLayers = QLabel("Hidden Layers:", widget)
 
 pushButton_addLayer = QPushButton("Add", widget)
-pushButton_deleteLayer = QPushButton("Delete", widget)
-pushButton_editLayer = QPushButton("Edit", widget)
+pushButton_deleteLayer = QPushButton("Delete last", widget)
+pushButton_editLayer = QPushButton("Edit Hidden", widget)
 
 ## Connections ##
 
@@ -630,14 +662,14 @@ lineEdit_trainFile.textChanged.connect(update_trainPath)
 lineEdit_testFile.returnPressed.connect(update_testPath)
 lineEdit_testFile.textChanged.connect(update_testPath)
 
-
 #Train and test pushButtons
 pushButton_train.pressed.connect(train_network)
 pushButton_test.pressed.connect(test_network)
 
 #Add, delete, edit pushButtons
 list_inputLayer.doubleClicked.connect(edit_inputLayer)
-
+pushButton_deleteLayer.pressed.connect(delete_hiddenLayer)
+pushButton_editLayer.pressed.connect(edit_hiddenLayer) ###Este botão é meio inutil
 list_layers.doubleClicked.connect(edit_hiddenLayer)
 
 #Input Output spinBoxes
