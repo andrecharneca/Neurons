@@ -9,7 +9,8 @@ from tensorflow import keras
 from keras.models import Sequential
 from keras.layers import Dense
 from numpy import loadtxt
-
+import numpy as np
+import time as time
 ## Console output reading function ##
 """def run(cmd):
     proc = subprocess.Popen(cmd,
@@ -72,6 +73,7 @@ class NewModelPopupWindow(QWidget):
         global model
         global hidden_layers
         global output_layer_settingsDict
+        global label_modelName
 
         """INSERT CHECK FOR VALID NAME"""
         """INSERT WARNING IF UNSAVED MODEL"""
@@ -95,11 +97,14 @@ class NewModelPopupWindow(QWidget):
 
         hidden_layers.append(model.layers[1])
         update_hiddenLayersList()
+
+        #update modelName label
+        label_modelName.setText("Model: " + model_name)
         self.close()
 
 class EditInputLayerPopupWindow(QWidget):
     """Edit input layer popup window"""
-    def __init__(self, listItem):
+    def __init__(self):
         QWidget.__init__(self)
         """mainLayout = QGridLayout(widget)
         self.setLayout(mainLayout)"""
@@ -118,8 +123,8 @@ class EditInputLayerPopupWindow(QWidget):
         self.neurons.setMinimum(0)
         self.neuronsLabel = QLabel("Neurons:",self)
 
-        self.itemName = listItem.text()
-        self.label = QLabel("Edit " + self.itemName + " properties.")
+
+        self.label = QLabel("Edit Input layer properties.")
         self.label.setAlignment(Qt.AlignCenter)
 
         pushButton_cancel = QPushButton("Cancel", self)
@@ -147,6 +152,54 @@ class EditInputLayerPopupWindow(QWidget):
         layer = model.get_layer(name = "input")
         layer.activation = activationFunctionDict[self.activationFunction.currentText()]
         layer.units = self.neurons.value()
+        print(layer.get_config()) ###
+
+        self.close()
+
+class EditOutputLayerPopupWindow(QWidget):
+    """Edit output layer popup window"""
+    def __init__(self):
+        QWidget.__init__(self)
+        """mainLayout = QGridLayout(widget)
+        self.setLayout(mainLayout)"""
+
+        vbox = QVBoxLayout(self)
+        hbox_activation = QHBoxLayout(self)
+        hbox_neurons = QHBoxLayout(self)
+        hbox_buttons = QHBoxLayout(self)
+
+        self.activationFunction = QComboBox(self)
+        self.activationFunction.addItems(activationFunctionList)
+        self.activationLabel = QLabel("Activation Function:",self)
+
+        self.neuronsLabel = QLabel("Note: Number of neurons in output layer is the output shape.")
+
+        self.label = QLabel("Edit Output layer properties.")
+        self.label.setAlignment(Qt.AlignCenter)
+
+        pushButton_cancel = QPushButton("Cancel", self)
+        pushButton_cancel.clicked.connect(self.close)
+
+        pushButton_saveEdit = QPushButton("Save Edit", self)
+        pushButton_saveEdit.clicked.connect(self.make_changes)
+
+        hbox_activation.addWidget(self.activationLabel)
+        hbox_activation.addWidget(self.activationFunction)
+        hbox_neurons.addWidget(self.neuronsLabel)
+        hbox_buttons.addWidget(pushButton_saveEdit)
+        hbox_buttons.addWidget(pushButton_cancel)
+
+        vbox.addWidget(self.label)
+        vbox.addLayout(hbox_neurons)
+        vbox.addLayout(hbox_activation)
+        vbox.addLayout(hbox_buttons)
+
+        #mainLayout.addLayout(vbox,0,0,0,0)
+
+    def make_changes(self):
+        global model
+        layer = model.get_layer(name = "output")
+        layer.activation = activationFunctionDict[self.activationFunction.currentText()]
         print(layer.get_config()) ###
 
         self.close()
@@ -232,6 +285,102 @@ class EditHiddenLayerPopupWindow(QWidget):
             self.listItem.setText(self.lineEdit.text())
 
             print(layer.get_config())###
+            self.close()
+        else:
+            error = QMessageBox.warning(None, "Error", "\n   Please insert valid layer name.   \n")
+
+class AddHiddenLayerPopupWindow(QWidget):
+    def __init__(self):
+        QWidget.__init__(self)
+        """mainLayout = QGridLayout(widget)
+        self.setLayout(mainLayout)
+        self.itemName = listItem.text()
+
+        global model
+        layer = model.get_layer(name=self.itemName)
+        current_neurons = layer.units
+        current_activationString = layer.get_config()['activation']
+        print(current_neurons) ###
+        print(current_activationString)###
+
+        self.listItem = listItem"""
+
+        vbox = QVBoxLayout(self)
+        hbox_lineEdit = QHBoxLayout(self)
+        hbox_activation = QHBoxLayout(self)
+        hbox_neurons = QHBoxLayout(self)
+        hbox_buttons = QHBoxLayout(self)
+
+        self.activationFunction = QComboBox(self)
+        self.activationFunction.addItems(activationFunctionList)
+        self.activationFunction.setCurrentIndex(activationFunctionList_lowercase.index("relu"))
+        self.activationLabel = QLabel("Activation Function:",self)
+
+        self.neurons = QSpinBox(self)
+        self.neurons.setValue(10)
+        self.neurons.setMinimum(0)
+        self.neuronsLabel = QLabel("Neurons:",self)
+
+        self.lineEdit = QLineEdit(self)
+        self.lineEdit.setText("Insert new layer name")
+        self.lineEditLabel = QLabel("Layer name:")
+
+        #set bold text
+        myFont = QFont()
+        myFont.setBold(True)
+        self.noteName = QLabel("Note: layer name must be unique, can't contain spaces and\n 'output' and 'input' are invalid names.")
+        self.noteName.setFont(myFont)
+
+        self.label = QLabel("Add new layer")
+        self.label.setAlignment(Qt.AlignCenter)
+
+        pushButton_cancel = QPushButton("Cancel", self)
+        pushButton_cancel.clicked.connect(self.close)
+
+        pushButton_addNewLayer = QPushButton("Add Layer", self)
+        pushButton_addNewLayer.clicked.connect(self.add_layer)
+
+        hbox_lineEdit.addWidget(self.lineEditLabel)
+        hbox_lineEdit.addWidget(self.lineEdit)
+        hbox_activation.addWidget(self.activationLabel)
+        hbox_activation.addWidget(self.activationFunction)
+        hbox_neurons.addWidget(self.neuronsLabel)
+        hbox_neurons.addWidget(self.neurons)
+        hbox_buttons.addWidget(pushButton_addNewLayer)
+        hbox_buttons.addWidget(pushButton_cancel)
+
+        vbox.addWidget(self.label)
+        vbox.addLayout(hbox_lineEdit)
+        vbox.addWidget(self.noteName)
+        vbox.addLayout(hbox_neurons)
+        vbox.addLayout(hbox_activation)
+        vbox.addLayout(hbox_buttons)
+
+        #mainLayout.addLayout(vbox,0,0,0,0)
+
+    def add_layer(self):
+        global model
+        global list_layers
+        if validLayerName(self.lineEdit.text()):
+            print("Name was valid!") ###
+            #First pop output layer
+            model.pop()
+
+            #Add new layer
+            model.add(Dense(12, activation = 'relu', name = self.lineEdit.text()))
+            layer = model.get_layer(name = self.lineEdit.text())
+            layer.activation = activationFunctionDict[self.activationFunction.currentText()]
+            layer.units = self.neurons.value()
+            #Add listItem to list
+            hidden_layers.append(model.get_layer(layer.name))
+            list_layers.addItem(layer.name)
+            update_hiddenLayersList()
+
+            #ReAdd output layer
+            model.add(Dense(output_layer_settingsDict["units"], name = 'output'))
+            model.get_layer(name = "output").activation = activationFunctionDict[output_layer_settingsDict["activation"]]
+
+            print(model.summary())###
             self.close()
         else:
             error = QMessageBox.warning(None, "Error", "\n   Please insert valid layer name.   \n")
@@ -352,7 +501,7 @@ def update_testPath():
         error.exec()"""
 
 ## Train/Test ##
-def get_inputOutput(path):
+def get_inputOutput(path): ###NOT USED
     global inputCol_start, inputCol_end, outputCol_start, outputCol_end
 
     """Get input and output lists with given input and output columns"""
@@ -373,37 +522,55 @@ def get_inputOutput(path):
 
 def train_network():
     """Train button function"""
-    ##INSERT CHECK FOR IF MODEL HAS BEEN CREATED, OR IF COLUMNS/FILE HAVE CHANGED
-    try: _, columns = read_file(trainFile_path, ',')
-    except:
-        pass
+    ##INSERT CHECK FOR IF MODEL HAS BEEN CREATED, OR IF INPUT/OUTPUT SHAPE HAVE CHANGED
+    if validModel():
+        try: _, columns = read_file(trainFile_path, ',')
+        except:
+            pass
 
-    if validPath(trainFile_path) and validColumns(inputCol_start, inputCol_end, outputCol_start, outputCol_end, columns):
-        trainData = loadtxt(trainFile_path, delimiter=',')
-        #input, output = get_inputOutput(trainFile_path)
-        input = trainData[:, inputCol_start:inputCol_end+1]
-        output = trainData[:, outputCol_start:outputCol_end+1]
-        textBrowser.clear()
-        textBrowser.append(str(input)) ####
+        textBrowser.append("Training, could take a while...")    ###doesnt work
 
-        ###Temporary training settings
-        textBrowser.append("Training, could take a while...")    ###
+        if validPath(trainFile_path) and validColumns(inputCol_start, inputCol_end, outputCol_start, outputCol_end, columns) \
+                and validInputOutputShapes():
 
-        # compile Keras model, Cross Entropy loss function for binary classification, Adam algorithm for optimization
-        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+            trainData = loadtxt(trainFile_path, delimiter=',')
+            #input, output = get_inputOutput(trainFile_path)
+            input = trainData[:, inputCol_start:inputCol_end+1]
+            output = trainData[:, outputCol_start:outputCol_end+1]
+            textBrowser.clear()
+            textBrowser.append(str(output)) ####
 
-        # fit (train) the Keras model on the dataset
-        model.fit(input, output, epochs=20, batch_size=20, verbose=0)
-        _, accuracy = model.evaluate(input,output, verbose=0)
+            ###Temporary training settings
 
-        textBrowser.append('Accuracy: %.2f' % (accuracy * 100))    ###
-        textBrowser.append("Model Trained!")    ###
+            # compile Keras model, Cross Entropy loss function for binary classification, Adam algorithm for optimization
+            model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-    elif not validPath(trainFile_path):
-        error = QMessageBox.warning(None, "Error", "\n   Please select a training file.   \n")
+            # fit (train) the Keras model on the dataset
+            model.fit(input, output, epochs=20, batch_size=20, verbose=0)
+            _, accuracy = model.evaluate(input,output, verbose=0)
 
-    else:
-        error = QMessageBox.warning(None, "Error", "\n   Invalid input or output columns.   \n")
+            #make predictions with model
+            predictions = model.predict(input)
+            rounded = [np.round(p) for p in predictions]
+
+            textBrowser.append('Accuracy: %.2f' % (accuracy * 100))    ###
+            textBrowser.append("Model Trained!")    ###
+
+            for i in range(columns):
+                textBrowser.append('%s -> %d (expected %d)' % (input[i].tolist(), rounded[i], output[i])) ###?
+
+
+        elif not validPath(trainFile_path):
+            error = QMessageBox.warning(None, "Error", "\n   Please select a training file.   \n")
+
+        elif not validColumns(inputCol_start, inputCol_end, outputCol_start, outputCol_end, columns):
+            error = QMessageBox.warning(None, "Error", "\n   Invalid input or output columns.   \n")
+
+        elif not validInputOutputShapes():
+            error = QMessageBox.warning(None, "Error", "\n   Invalid input or output shapes.   \n   Note: Can't change input or output size after\n creating model.   \n")
+
+    else: #invalid model
+        error = QMessageBox.warning(None, "Error", "\n   Invalid model.   \n")
 
 
 def test_network():
@@ -424,7 +591,6 @@ def test_network():
     else:
         error = QMessageBox.warning(None, "Error", "\n   Invalid input or output columns.   \n")
 
-
 def validColumns(inputStart, inputEnd,outputStart, outputEnd, totalCols):
     """Checks if input/output columns are valid, given the file"""
     if inputEnd >= inputStart and outputEnd>=outputStart and (outputStart > inputEnd or inputStart > outputEnd) \
@@ -433,6 +599,21 @@ def validColumns(inputStart, inputEnd,outputStart, outputEnd, totalCols):
         return True
     else:
         return False
+
+def validInputOutputShapes():
+    """Checks if current selection of input and output columns
+    is valid with the model's"""
+    global model
+    model_inputDim = model.get_layer(name = 'input').input_shape[1] #number of inputs
+    model_outputDim = model.get_layer(name = 'output').units
+    current_inputDim = inputCol_end - inputCol_start + 1
+    current_outputDim = outputCol_end - outputCol_start + 1
+
+    #Non compatible shapes
+    if model_inputDim != current_inputDim or model_outputDim != current_outputDim:
+        return False
+    else:
+        return True
 
 def update_inputCols():
     """Input spinBoxes function"""
@@ -457,9 +638,20 @@ def edit_inputLayer():
     """Edit input layer function"""
     if validModel():
         global editPopup
-        editPopup = EditInputLayerPopupWindow(list_inputLayer.currentItem())
+        editPopup = EditInputLayerPopupWindow()
         editPopup.setGeometry(QRect(400, 400, 100, 100))
-        editPopup.setWindowTitle("Edit " + list_inputLayer.currentItem().text())
+        editPopup.setWindowTitle("Edit Input layer")
+        editPopup.show()
+    else:
+        error = QMessageBox.warning(None, "Error", "\n   Invalid model.   \n")
+
+def edit_outputLayer():
+    """Edit output layer function"""
+    if validModel():
+        global editPopup
+        editPopup = EditOutputLayerPopupWindow()
+        editPopup.setGeometry(QRect(400, 400, 100, 100))
+        editPopup.setWindowTitle("Edit Output layer")
         editPopup.show()
     else:
         error = QMessageBox.warning(None, "Error", "\n   Invalid model.   \n")
@@ -467,13 +659,13 @@ def edit_inputLayer():
 
 def edit_hiddenLayer():
     """Edit hidden layer function"""
-    if validModel():
+    if validModel() and list_layers.currentItem() != None:
         global editHiddenPopup
         editHiddenPopup = EditHiddenLayerPopupWindow(list_layers.currentItem())
         editHiddenPopup.setGeometry(QRect(400, 400, 100, 100))
         editHiddenPopup.setWindowTitle("Edit " + list_layers.currentItem().text())
         editHiddenPopup.show()
-    else:
+    elif list_layers.currentItem() != None:
         error = QMessageBox.warning(None,"Error","\n   Invalid model.   \n")
 
 def delete_hiddenLayer():
@@ -486,6 +678,7 @@ def delete_hiddenLayer():
             hidden_layers.pop()
             update_hiddenLayersList()
 
+            #ReAdd output layer
             model.add(Dense(output_layer_settingsDict["units"], name = 'output'))
             model.get_layer(name = "output").activation = activationFunctionDict[output_layer_settingsDict["activation"]]
 
@@ -494,6 +687,17 @@ def delete_hiddenLayer():
 
     if not validModel():
             error = QMessageBox.warning(None,"Error","\n   Invalid model.   \n")
+
+def add_hiddenLayer():
+    """Add hidden layer function"""
+    if validModel():
+        global addHiddenPopup
+        addHiddenPopup = AddHiddenLayerPopupWindow()
+        addHiddenPopup.setGeometry(QRect(400, 400, 100, 100))
+        addHiddenPopup.setWindowTitle("Add hidden layer")
+        addHiddenPopup.show()
+    elif list_layers.currentItem() != None:
+        error = QMessageBox.warning(None, "Error", "\n   Invalid model.   \n")
 
 
 def update_hiddenLayersList():
@@ -504,23 +708,29 @@ def update_hiddenLayersList():
     for layer in hidden_layers:
         list_layers.addItem(layer.name)
 
-def validLayerName(string, currentName):
-    """checks if layer name is valid
+def validLayerName(string, currentName=None):
+    """Checks if layer name is valid
     - no spaces
-    - no repeated layer names"""
+    - no repeated layer names (including 'input' and 'output')
+     """
     valid = True
 
     global hidden_layers
-    if string == currentName:
+    if string == currentName and currentName!=None:
         #If the name is unchanged it's okay
         return True
     for layer in hidden_layers:
+        if string == 'output' or string == 'input':
+            valid = False
         if " " in string:
             valid = False
         #Check for other layers other than itself
         elif layer.name != currentName:
             if layer.name == string:
                 valid = False
+        if valid == False:
+            break
+
 
     return valid
 
@@ -535,16 +745,14 @@ def validModel():
 
 ## MenuBar Functions ##
 
-def new_Model():
+def new_model():
+    global model_name
     """creates new model"""
     try: trainData, columns = read_file(trainFile_path, ',')
     except:
         pass
 
     if validPath(trainFile_path) and validColumns(inputCol_start, inputCol_end, outputCol_start, outputCol_end, columns):
-        """
-        code
-        """
 
         global popupWindow #Popup window for new model
         popupWindow = NewModelPopupWindow()
@@ -593,7 +801,7 @@ outputNumber = 0
 #Model
 model = None
 hidden_layers = None
-model_name = 'default_model'
+model_name = ''
 popupWindow = None
 
 #Layers
@@ -607,6 +815,12 @@ output_layer_settingsDict = {"units": 0, "activation": "ReLu"} #To save output s
 ## Items ##
 
 #Train and test
+myFont = QFont() #Bold font
+myFont.setBold(True)
+myFont.setPointSize(15)
+label_modelName = QLabel("Model: No model selected")
+label_modelName.setFont(myFont)
+label_modelName.setAlignment(Qt.AlignCenter)
 label_trainFile = QLabel("Train File:", widget)
 label_testFile = QLabel("Test File:", widget)
 label_inputColumns = QLabel("Input Columns:", widget)
@@ -626,7 +840,6 @@ spinBox_inputStart = QSpinBox(widget)
 spinBox_inputEnd = QSpinBox(widget)
 spinBox_outputStart = QSpinBox(widget)
 spinBox_outputEnd = QSpinBox(widget)
-
 
 #Text Browser
 textBrowser = QTextBrowser(widget)
@@ -651,7 +864,6 @@ pushButton_deleteLayer = QPushButton("Delete last", widget)
 pushButton_editLayer = QPushButton("Edit Hidden", widget)
 
 ## Connections ##
-
 #Train and test file pushButtons
 pushButton_trainFile.pressed.connect(open_trainFile) #open file browser
 pushButton_testFile.pressed.connect(open_testFile) #open file browser
@@ -668,9 +880,11 @@ pushButton_test.pressed.connect(test_network)
 
 #Add, delete, edit pushButtons
 list_inputLayer.doubleClicked.connect(edit_inputLayer)
+list_outputLayer.doubleClicked.connect(edit_outputLayer)
 pushButton_deleteLayer.pressed.connect(delete_hiddenLayer)
 pushButton_editLayer.pressed.connect(edit_hiddenLayer) ###Este botão é meio inutil
 list_layers.doubleClicked.connect(edit_hiddenLayer)
+pushButton_addLayer.pressed.connect(add_hiddenLayer)
 
 #Input Output spinBoxes
 spinBox_inputStart.valueChanged.connect(update_inputCols)
@@ -724,6 +938,7 @@ hbox_top = QHBoxLayout()
 
 #Files and Train Test buttons Vbox
 vbox_files = QVBoxLayout()
+vbox_files.addWidget(label_modelName)
 vbox_files.addLayout(hbox_trainFile)
 vbox_files.addLayout(hbox_testFile)
 vbox_files.addLayout(hbox_inputColumns)
@@ -747,7 +962,7 @@ menuBar = QMenuBar(widget)
 menuFile = menuBar.addMenu('&File')
 menuFile_newModel = menuFile.addAction("New model")
 menuFile_newModel.setShortcut("Ctrl+N")
-menuFile_newModel.triggered.connect(new_Model)
+menuFile_newModel.triggered.connect(new_model)
 
 menuFile_newWeights = menuFile.addAction("New weights")
 menuFile_newWeights.setShortcut("Ctrl+Shift+N")
@@ -783,11 +998,9 @@ window.setLayout(mainLayout)
 
 
 ## Testing ##
-list_layers.addItem("test item")
 
 
 app.setStyleSheet(qdarkstyle.load_stylesheet())
-app.setStyleSheet("")
 
 if __name__ == "__main__":
     window.show()

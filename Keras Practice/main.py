@@ -9,7 +9,7 @@ import time
 #training data company name
 name = 'activision'
 #number of days per row
-ndays = 10
+ndays = 2
 
 #load the dataset, using AAPL data from 2013-2018
 dataset = loadtxt('../Data/diabetes_data.txt', delimiter=',')
@@ -20,23 +20,25 @@ x = dataset[:,0:2*ndays] #columns 0->ndays-1
 y = dataset[:,2*ndays] #column ndays
 
 print(x)
-"""accuracy_mean = 0
-n = 50
+accuracy_mean = 0
+n = 1
 
 #measure time in seconds
 start = time.time()
 for i in range(n):
     #define Keras model
     model = Sequential()
-    model.add(Dense(20, input_dim=2*ndays, activation='relu')) #1a layer, 12 nodes, ReLU activation functions
+    model.add(Dense(20, input_dim=2*ndays, activation='relu', name = 'input')) #1a layer, 12 nodes, ReLU activation functions
     model.add(Dense(12, activation='relu')) #2a layer, 8 nodes
     model.add(Dense(1, activation='sigmoid')) #3a layer, Sigmoid activation function for output in [0,1]
+
+    print(model.get_layer(name='input').input_shape[1]) #number of inputs
 
     #compile Keras model, Cross Entropy loss function for binary classification, Adam algorithm for optimization
     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
     #fit (train) the Keras model on the dataset
-    model.fit(x,y, epochs=500, batch_size=10, verbose=0)
+    model.fit(x,y, epochs=10, batch_size=10, verbose=0)
 
     #evaluate Keras model
     _, accuracy = model.evaluate(x, y, verbose=0)
@@ -67,4 +69,4 @@ predictions = model.predict(x)
 rounded = [np.round(p) for p in predictions]
 #summarize first 5 cases
 for i in range(100,120):
-    print('%s -> %d (expected %d)' % (x[i].tolist(), rounded[i], y[i]))"""
+    print('%s -> %d (expected %d)' % (x[i].tolist(), rounded[i], y[i]))
