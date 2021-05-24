@@ -292,19 +292,6 @@ class EditHiddenLayerPopupWindow(QWidget):
 class AddHiddenLayerPopupWindow(QWidget):
     def __init__(self):
         QWidget.__init__(self)
-        """mainLayout = QGridLayout(widget)
-        self.setLayout(mainLayout)
-        self.itemName = listItem.text()
-
-        global model
-        layer = model.get_layer(name=self.itemName)
-        current_neurons = layer.units
-        current_activationString = layer.get_config()['activation']
-        print(current_neurons) ###
-        print(current_activationString)###
-
-        self.listItem = listItem"""
-
         vbox = QVBoxLayout(self)
         hbox_lineEdit = QHBoxLayout(self)
         hbox_activation = QHBoxLayout(self)
@@ -385,6 +372,93 @@ class AddHiddenLayerPopupWindow(QWidget):
         else:
             error = QMessageBox.warning(None, "Error", "\n   Please insert valid layer name.   \n")
 
+class TrainPopupWindow(QWidget):
+    """Train network popup window
+    ### NOTA: Falta opções de fit"""
+    def __init__(self):
+
+        QWidget.__init__(self)
+        vbox = QVBoxLayout(self)
+        hbox_optimizer = QHBoxLayout(self)
+        hbox_loss = QHBoxLayout(self)
+        hbox_metrics = QHBoxLayout(self)
+        hbox_buttons = QHBoxLayout(self)
+
+        self.label = QLabel("Training settings (compile and fit)")
+        self.label.setAlignment(Qt.AlignCenter)
+        self.optimizerCombo = QComboBox(self)
+        self.optimizerCombo.addItems(optimizerList)
+        self.optimizerCombo.setCurrentIndex(0)
+        self.optimizerLabel = QLabel("Optimizer algorithm:",self)
+
+        self.lossCombo = QComboBox(self)
+        self.lossCombo.addItems(lossFunctionList)
+        self.lossCombo.setCurrentIndex(0)
+        self.lossLabel = QLabel("Loss function:", self)
+
+        self.metricsCombo = QComboBox(self)
+        self.metricsCombo.addItems(metricsList)
+        self.metricsCombo.setCurrentIndex(0)
+        self.metricsLabel = QLabel("Show metric:", self)
+
+        #set bold text
+        """myFont = QFont()
+        myFont.setBold(True)
+        self.noteName = QLabel("Note: layer name must be unique, can't contain spaces and\n 'output' and 'input' are invalid names.")
+        self.noteName.setFont(myFont)
+
+        self.label = QLabel("Add new layer")
+        self.label.setAlignment(Qt.AlignCenter)"""
+
+        pushButton_cancel = QPushButton("Cancel", self)
+        pushButton_cancel.clicked.connect(self.close)
+
+        pushButton_trainModel = QPushButton("Train", self)
+        pushButton_trainModel.clicked.connect(self.train)
+
+        hbox_optimizer.addWidget(self.optimizerLabel)
+        hbox_optimizer.addWidget(self.optimizerCombo)
+        hbox_loss.addWidget(self.lossLabel)
+        hbox_loss.addWidget(self.lossCombo)
+        hbox_metrics.addWidget(self.metricsLabel)
+        hbox_metrics.addWidget(self.metricsCombo)
+        hbox_buttons.addWidget(pushButton_trainModel)
+        hbox_buttons.addWidget(pushButton_cancel)
+
+        vbox.addWidget(self.label)
+        vbox.addLayout(hbox_optimizer)
+        vbox.addLayout(hbox_loss)
+        vbox.addLayout(hbox_metrics)
+        vbox.addLayout(hbox_buttons)
+
+    def train(self):
+        global model
+        global textBrowser
+        _, columns = read_file(trainFile_path, ',')
+        textBrowser.clear()
+        #get input and output columns
+        trainData = loadtxt(trainFile_path, delimiter=',')
+        input = trainData[:, inputCol_start:inputCol_end + 1]
+        output = trainData[:, outputCol_start:outputCol_end + 1]
+
+        # compile Keras model
+        model.compile(optimizer = self.optimizerCombo.currentText(), loss = lossFunctionList_lowercase[lossFunctionList.index(self.lossCombo.currentText())], metrics=[metricsList_lowercase[metricsList.index(self.metricsCombo.currentText())]])
+
+        ###Below is temporary
+        # fit (train) the Keras model on the dataset
+        model.fit(input, output, epochs=20, batch_size=10, verbose=0)
+        _, metric = model.evaluate(input, output, verbose=0)
+
+        # make predictions with model
+        predictions = model.predict(input)
+        rounded = [np.round(p) for p in predictions]
+
+        textBrowser.append(self.metricsCombo.currentText() + ': %.4f'%(metric) )  ###
+        textBrowser.append("Model Trained!")  ###
+
+        for i in range(columns):
+            textBrowser.append('%s -> %d (expected %d)' % (input[i].tolist(), rounded[i], output[i]))  ###?
+        self.close()
 
 ## File functions ##
 
@@ -520,7 +594,7 @@ def get_inputOutput(path): ###NOT USED
         k+=1
     return input, output
 
-def train_network():
+def train_model():
     """Train button function"""
     ##INSERT CHECK FOR IF MODEL HAS BEEN CREATED, OR IF INPUT/OUTPUT SHAPE HAVE CHANGED
     if validModel():
@@ -532,33 +606,11 @@ def train_network():
 
         if validPath(trainFile_path) and validColumns(inputCol_start, inputCol_end, outputCol_start, outputCol_end, columns) \
                 and validInputOutputShapes():
-
-            trainData = loadtxt(trainFile_path, delimiter=',')
-            #input, output = get_inputOutput(trainFile_path)
-            input = trainData[:, inputCol_start:inputCol_end+1]
-            output = trainData[:, outputCol_start:outputCol_end+1]
-            textBrowser.clear()
-            textBrowser.append(str(output)) ####
-
-            ###Temporary training settings
-
-            # compile Keras model, Cross Entropy loss function for binary classification, Adam algorithm for optimization
-            model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
-
-            # fit (train) the Keras model on the dataset
-            model.fit(input, output, epochs=20, batch_size=20, verbose=0)
-            _, accuracy = model.evaluate(input,output, verbose=0)
-
-            #make predictions with model
-            predictions = model.predict(input)
-            rounded = [np.round(p) for p in predictions]
-
-            textBrowser.append('Accuracy: %.2f' % (accuracy * 100))    ###
-            textBrowser.append("Model Trained!")    ###
-
-            for i in range(columns):
-                textBrowser.append('%s -> %d (expected %d)' % (input[i].tolist(), rounded[i], output[i])) ###?
-
+            global trainPopup
+            trainPopup = TrainPopupWindow()
+            trainPopup.setGeometry(QRect(400, 400, 100, 100))
+            trainPopup.setWindowTitle("Train current model")
+            trainPopup.show()
 
         elif not validPath(trainFile_path):
             error = QMessageBox.warning(None, "Error", "\n   Please select a training file.   \n")
@@ -572,8 +624,7 @@ def train_network():
     else: #invalid model
         error = QMessageBox.warning(None, "Error", "\n   Invalid model.   \n")
 
-
-def test_network():
+def test_model():
     """Test button function"""
     try: testData, columns = read_file(testFile_path, ',')
     except:
@@ -656,7 +707,6 @@ def edit_outputLayer():
     else:
         error = QMessageBox.warning(None, "Error", "\n   Invalid model.   \n")
 
-
 def edit_hiddenLayer():
     """Edit hidden layer function"""
     if validModel() and list_layers.currentItem() != None:
@@ -699,7 +749,6 @@ def add_hiddenLayer():
     elif list_layers.currentItem() != None:
         error = QMessageBox.warning(None, "Error", "\n   Invalid model.   \n")
 
-
 def update_hiddenLayersList():
     """Updates hidden layers Qlist with hidden_layers list """
     global hidden_layers
@@ -740,8 +789,6 @@ def validModel():
     if model == None:
         return False
     return True
-
-
 
 ## MenuBar Functions ##
 
@@ -804,14 +851,18 @@ hidden_layers = None
 model_name = ''
 popupWindow = None
 
-#Layers
+#Auxiliary lists and dicts
 activationFunctionList = ["ReLu", "Sigmoid", "SoftMax", "SoftPlus", "SoftSign", "Tanh", "SeLu", "Elu", "Exponential"]
 activationFunctionList_lowercase = ["relu", "sigmoid", "softmax", "softplus", "softsign", "tanh", "selu", "elu", "exponential"]
 activationFunctionDict = {"ReLu": tf.keras.activations.relu, "Sigmoid": tf.keras.activations.sigmoid, "SoftMax": tf.keras.activations.softmax,
                           "SoftPlus": tf.keras.activations.softplus, "SoftSign": tf.keras.activations.softsign, "Tanh": tf.keras.activations.tanh,
                           "SeLu": tf.keras.activations.selu, "Elu": tf.keras.activations.elu, "Exponential": tf.keras.activations.exponential}
 output_layer_settingsDict = {"units": 0, "activation": "ReLu"} #To save output settings for Add and Delete button methods
-#inverted_activationFunctionDict = {value : key for (key, value) in activationFunctionDict.items()} #inverted dict
+optimizerList = ['Adam', 'SGD', 'RMSprop', 'Adadelta', 'Adagrad', 'Adamax', 'Nadam', 'Ftrl']
+lossFunctionList = ['Mean Squared Error','Mean Squared Logarithmic Error', 'Huber', 'Binary Crossentropy', 'Sparse Categorical Crossentropy']
+lossFunctionList_lowercase = ['mean_squared_error','mean_squared_logarithmic_error', 'huber_loss','binary_crossentropy','sparse_categorical_crossentropy']
+metricsList = ['Accuracy', 'Binary Accuracy','Mean Squared Error', 'Mean Absolute Error', 'Mean Absolute Percentage Error']
+metricsList_lowercase = ['accuracy', 'binary_accuracy', 'mean_squared_error','mean_absolute_error','mean_absolute_percentage_error']
 ## Items ##
 
 #Train and test
@@ -875,8 +926,8 @@ lineEdit_testFile.returnPressed.connect(update_testPath)
 lineEdit_testFile.textChanged.connect(update_testPath)
 
 #Train and test pushButtons
-pushButton_train.pressed.connect(train_network)
-pushButton_test.pressed.connect(test_network)
+pushButton_train.pressed.connect(train_model)
+pushButton_test.pressed.connect(test_model)
 
 #Add, delete, edit pushButtons
 list_inputLayer.doubleClicked.connect(edit_inputLayer)
