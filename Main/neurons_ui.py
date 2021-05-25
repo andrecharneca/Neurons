@@ -859,7 +859,7 @@ app = QApplication([])
 app.setApplicationName("Neurons 1.0")
 
 window = QMainWindow()
-window.setGeometry(500,200,800,700) #(position xy, size xy)
+window.setGeometry(500,200,800,650) #(position xy, size xy)
 
 widget = QWidget(window)
 
@@ -907,6 +907,7 @@ myFont.setPointSize(15)
 label_modelName = QLabel("Model: No model selected")
 label_modelName.setFont(myFont)
 label_modelName.setAlignment(Qt.AlignCenter)
+label_modelName.setMaximumHeight(40)
 label_trainFile = QLabel("Train File:", widget)
 label_testFile = QLabel("Test File:", widget)
 label_inputColumns = QLabel("Input Columns:", widget)
@@ -929,6 +930,8 @@ spinBox_outputEnd = QSpinBox(widget)
 
 #Text Browser
 textBrowser = QTextBrowser(widget)
+textBrowser.setMinimumHeight(300)
+textBrowserLabel = QLabel("Output:")
 
 #Layers List Widget
 list_layers = QListWidget(widget)
@@ -943,6 +946,7 @@ list_outputLayer.setFixedHeight(40)
 list_outputLayer.addItem("Output")
 
 label_layers = QLabel("Layers", widget)
+label_layers.setFont(myFont)
 label_layers.setAlignment(Qt.AlignCenter)
 label_hiddenLayers = QLabel("Hidden Layers:", widget)
 
@@ -1072,6 +1076,7 @@ hbox_top.addLayout(vbox_layers)
 
 vbox_main.addWidget(menuBar)
 vbox_main.addLayout(hbox_top)
+vbox_main.addWidget(textBrowserLabel)
 vbox_main.addWidget(textBrowser)
 
 
