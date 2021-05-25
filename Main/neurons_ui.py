@@ -11,6 +11,8 @@ from keras.layers import Dense
 from numpy import loadtxt
 import numpy as np
 import time as time
+from qt_material import apply_stylesheet
+import os
 ## Console output reading function ##
 """def run(cmd):
     proc = subprocess.Popen(cmd,
@@ -243,7 +245,7 @@ class EditHiddenLayerPopupWindow(QWidget):
         #set bold text
         myFont = QFont()
         myFont.setBold(True)
-        self.noteName = QLabel("Note: layer name must be unique and can't contain spaces.")
+        self.noteName = QLabel("\nNote: layer name must be unique and can't contain spaces.\n")
         self.noteName.setFont(myFont)
 
         self.label = QLabel("Edit " + self.itemName + " properties.")
@@ -382,24 +384,38 @@ class TrainPopupWindow(QWidget):
         hbox_optimizer = QHBoxLayout(self)
         hbox_loss = QHBoxLayout(self)
         hbox_metrics = QHBoxLayout(self)
+        hbox_fit = QHBoxLayout(self)
         hbox_buttons = QHBoxLayout(self)
+
+        #for max value of batch size
+        trainData = loadtxt(trainFile_path, delimiter=',')
 
         self.label = QLabel("Training settings (compile and fit)")
         self.label.setAlignment(Qt.AlignCenter)
         self.optimizerCombo = QComboBox(self)
         self.optimizerCombo.addItems(optimizerList)
-        self.optimizerCombo.setCurrentIndex(0)
+        self.optimizerCombo.setCurrentIndex(optimizerList.index(previous_train_settingsDict['optimizer']))
         self.optimizerLabel = QLabel("Optimizer algorithm:",self)
 
         self.lossCombo = QComboBox(self)
         self.lossCombo.addItems(lossFunctionList)
-        self.lossCombo.setCurrentIndex(0)
+        self.lossCombo.setCurrentIndex(lossFunctionList.index(previous_train_settingsDict['loss']))
         self.lossLabel = QLabel("Loss function:", self)
 
         self.metricsCombo = QComboBox(self)
         self.metricsCombo.addItems(metricsList)
-        self.metricsCombo.setCurrentIndex(0)
+        self.metricsCombo.setCurrentIndex(metricsList.index(previous_train_settingsDict['metric']))
         self.metricsLabel = QLabel("Show metric:", self)
+
+        self.epochsSpin = QSpinBox(self)
+        self.epochsSpin.setRange(1,10000)
+        self.epochsSpin.setValue(previous_train_settingsDict['epochs'])
+        self.epochsLabel = QLabel("Number of Epochs: ")
+
+        self.batchSpin = QSpinBox(self)
+        self.batchSpin.setRange(1,len(trainData))
+        self.batchSpin.setValue(previous_train_settingsDict['batch_size'])
+        self.batchLabel = QLabel("Batch size: ")
 
         #set bold text
         """myFont = QFont()
@@ -422,6 +438,10 @@ class TrainPopupWindow(QWidget):
         hbox_loss.addWidget(self.lossCombo)
         hbox_metrics.addWidget(self.metricsLabel)
         hbox_metrics.addWidget(self.metricsCombo)
+        hbox_fit.addWidget(self.epochsLabel)
+        hbox_fit.addWidget(self.epochsSpin)
+        hbox_fit.addWidget(self.batchLabel)
+        hbox_fit.addWidget(self.batchSpin)
         hbox_buttons.addWidget(pushButton_trainModel)
         hbox_buttons.addWidget(pushButton_cancel)
 
@@ -429,6 +449,7 @@ class TrainPopupWindow(QWidget):
         vbox.addLayout(hbox_optimizer)
         vbox.addLayout(hbox_loss)
         vbox.addLayout(hbox_metrics)
+        vbox.addLayout(hbox_fit)
         vbox.addLayout(hbox_buttons)
 
     def train(self):
@@ -436,6 +457,14 @@ class TrainPopupWindow(QWidget):
         global textBrowser
         _, columns = read_file(trainFile_path, ',')
         textBrowser.clear()
+
+        #update previous settings
+        previous_train_settingsDict['optimizer'] = self.optimizerCombo.currentText()
+        previous_train_settingsDict['loss'] = self.lossCombo.currentText()
+        previous_train_settingsDict['metric'] = self.metricsCombo.currentText()
+        previous_train_settingsDict['epochs'] = self.epochsSpin.value()
+        previous_train_settingsDict['batch_size'] = self.batchSpin.value()
+
         #get input and output columns
         trainData = loadtxt(trainFile_path, delimiter=',')
         input = trainData[:, inputCol_start:inputCol_end + 1]
@@ -444,11 +473,11 @@ class TrainPopupWindow(QWidget):
         # compile Keras model
         model.compile(optimizer = self.optimizerCombo.currentText(), loss = lossFunctionList_lowercase[lossFunctionList.index(self.lossCombo.currentText())], metrics=[metricsList_lowercase[metricsList.index(self.metricsCombo.currentText())]])
 
-        ###Below is temporary
         # fit (train) the Keras model on the dataset
-        model.fit(input, output, epochs=20, batch_size=10, verbose=0)
+        model.fit(input, output, epochs = self.epochsSpin.value(), batch_size = self.batchSpin.value(), verbose=0)
         _, metric = model.evaluate(input, output, verbose=0)
 
+        ###Below is temporary
         # make predictions with model
         predictions = model.predict(input)
         rounded = [np.round(p) for p in predictions]
@@ -815,17 +844,22 @@ def new_model():
 
 #Themes
 def set_darkTheme():
-    app.setStyleSheet(qdarkstyle.load_stylesheet())
-
-def set_defaultTheme():
-    app.setStyleSheet("")
+    apply_stylesheet(app, theme='dark_custom.xml', extra=extra)
+    stylesheet = app.styleSheet()
+    with open('../stylesheets/Qt_Material/custom_QtPushButton.css') as file:
+        app.setStyleSheet(stylesheet + file.read().format(**os.environ))
+def set_lightTheme():
+    apply_stylesheet(app, theme='light_custom.xml',invert_secondary=False, extra=extra)
+    stylesheet = app.styleSheet()
+    with open('../stylesheets/Qt_Material/custom_QtPushButton.css') as file:
+        app.setStyleSheet(stylesheet + file.read().format(**os.environ))
 
 ### Main ###
 app = QApplication([])
 app.setApplicationName("Neurons 1.0")
 
 window = QMainWindow()
-window.setGeometry(500,500,800,300) #(position xy, size xy)
+window.setGeometry(500,200,800,700) #(position xy, size xy)
 
 widget = QWidget(window)
 
@@ -863,6 +897,7 @@ lossFunctionList = ['Mean Squared Error','Mean Squared Logarithmic Error', 'Hube
 lossFunctionList_lowercase = ['mean_squared_error','mean_squared_logarithmic_error', 'huber_loss','binary_crossentropy','sparse_categorical_crossentropy']
 metricsList = ['Accuracy', 'Binary Accuracy','Mean Squared Error', 'Mean Absolute Error', 'Mean Absolute Percentage Error']
 metricsList_lowercase = ['accuracy', 'binary_accuracy', 'mean_squared_error','mean_absolute_error','mean_absolute_percentage_error']
+previous_train_settingsDict = {'optimizer': 'Adam', 'loss': 'Mean Squared Error', 'metric': 'Accuracy', 'epochs': 100, 'batch_size': 10}
 ## Items ##
 
 #Train and test
@@ -899,11 +934,12 @@ textBrowser = QTextBrowser(widget)
 list_layers = QListWidget(widget)
 
 list_inputLayer = QListWidget(widget)
-list_inputLayer.setFixedHeight(25)
+list_inputLayer.setFixedHeight(40)
 list_inputLayer.addItem("Input")
 
+
 list_outputLayer = QListWidget(widget)
-list_outputLayer.setFixedHeight(25)
+list_outputLayer.setFixedHeight(40)
 list_outputLayer.addItem("Output")
 
 label_layers = QLabel("Layers", widget)
@@ -1028,7 +1064,7 @@ menuTheme = menuBar.addMenu("&Theme")
 menuTheme_dark = menuTheme.addAction("&Dark")
 menuTheme_dark.triggered.connect(set_darkTheme)
 menuTheme_light = menuTheme.addAction("&Light")
-menuTheme_light.triggered.connect(set_defaultTheme)
+menuTheme_light.triggered.connect(set_lightTheme)
 
 ## Ordering Boxes ##
 hbox_top.addLayout(vbox_files)
@@ -1049,9 +1085,22 @@ window.setLayout(mainLayout)
 
 
 ## Testing ##
+extra = {
+    # Button colors
+    'danger': '#dc3545',
+    'warning': '#ffc107',
+    'success': '#17a2b8',
 
+    # Font
+    'font-family': 'Montserrat',
+}
+apply_stylesheet(app, theme='dark_custom.xml', extra=extra)
 
-app.setStyleSheet(qdarkstyle.load_stylesheet())
+stylesheet = app.styleSheet()
+with open('../stylesheets/Qt_Material/custom_QtPushButton.css') as file:
+    app.setStyleSheet(stylesheet + file.read().format(**os.environ))
+
+#app.setStyleSheet(qdarkstyle.load_stylesheet())
 
 if __name__ == "__main__":
     window.show()

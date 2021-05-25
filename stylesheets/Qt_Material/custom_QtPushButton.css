@@ -1,0 +1,22 @@
+QPushButton {{
+  color: {QTMATERIAL_SECONDARYCOLOR};
+  text-transform: none;
+  background-color: {QTMATERIAL_PRIMARYCOLOR};
+  margin: 0px;
+  padding: 0px 0px;
+  height: 10px;
+  min-height: 10px;
+  max-height: 10px;
+  max-width: 120px;
+  font-weight: normal;
+  font-family: "Montserrat", monospace;
+  border-radius: 6px;
+  padding: 4px 8px;
+  height: 14px;
+}}
+QLineEdit{{
+  height: 18px;
+}}
+.big_button {{
+  height: 64px;
+}}

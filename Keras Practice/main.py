@@ -13,7 +13,7 @@ ndays = 2
 
 #load the dataset, using AAPL data from 2013-2018
 dataset = loadtxt('../Data/diabetes_data.txt', delimiter=',')
-
+print("Dataset len: " + str(len(dataset)))
 #split into input X and output Y, ndays is number of days per row
 
 x = dataset[:,0:2*ndays] #columns 0->ndays-1
