@@ -13,6 +13,7 @@ import numpy as np
 import time as time
 from qt_material import apply_stylesheet
 import os
+import threading
 ## Console output reading function ##
 """def run(cmd):
     proc = subprocess.Popen(cmd,
@@ -49,6 +50,7 @@ class NewModelPopupWindow(QWidget):
         self.lineEdit = QLineEdit(self)
         self.lineEdit.setText('new_model')
         self.lineEdit.textChanged.connect(self.change_path)
+        self.lineEdit.returnPressed.connect(self.create_model)
 
         pushButton_createModel = QPushButton("Create model", self)
         pushButton_createModel.clicked.connect(self.create_model)
@@ -375,8 +377,7 @@ class AddHiddenLayerPopupWindow(QWidget):
             error = QMessageBox.warning(None, "Error", "\n   Please insert valid layer name.   \n")
 
 class TrainPopupWindow(QWidget):
-    """Train network popup window
-    ### NOTA: Falta opções de fit"""
+    """Train network popup window"""
     def __init__(self):
 
         QWidget.__init__(self)
@@ -453,9 +454,7 @@ class TrainPopupWindow(QWidget):
         vbox.addLayout(hbox_buttons)
 
     def train(self):
-        global model
         global textBrowser
-        _, columns = read_file(trainFile_path, ',')
         textBrowser.clear()
 
         #update previous settings
@@ -465,29 +464,42 @@ class TrainPopupWindow(QWidget):
         previous_train_settingsDict['epochs'] = self.epochsSpin.value()
         previous_train_settingsDict['batch_size'] = self.batchSpin.value()
 
-        #get input and output columns
+        self.thread = QThread()
+
+        self.worker = train_model_worker()
+        self.worker.set_parameters(self.optimizerCombo.currentText(), lossFunctionList_lowercase[lossFunctionList.index(self.lossCombo.currentText())], metricsList_lowercase[metricsList.index(self.metricsCombo.currentText())], self.epochsSpin.value(), self.batchSpin.value())
+        self.worker.moveToThread(self.thread)
+
+        self.thread.started.connect(self.worker.run)
+        self.worker.progress.connect(print_signal)
+        self.worker.finished.connect(self.thread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.worker.finished.connect(self.print_metric)
+        self.thread.finished.connect(self.thread.deleteLater)
+        self.thread.finished.connect(self.close)
+
+        # start the thread
+        self.thread.start()
+
+    def print_metric(self):
+        """Prints metric for model"""
+        _, columns = read_file(trainFile_path, ',')
         trainData = loadtxt(trainFile_path, delimiter=',')
         input = trainData[:, inputCol_start:inputCol_end + 1]
         output = trainData[:, outputCol_start:outputCol_end + 1]
 
-        # compile Keras model
-        model.compile(optimizer = self.optimizerCombo.currentText(), loss = lossFunctionList_lowercase[lossFunctionList.index(self.lossCombo.currentText())], metrics=[metricsList_lowercase[metricsList.index(self.metricsCombo.currentText())]])
+        _, metric_value = model.evaluate(input, output, verbose=0)
 
-        # fit (train) the Keras model on the dataset
-        model.fit(input, output, epochs = self.epochsSpin.value(), batch_size = self.batchSpin.value(), verbose=0)
-        _, metric = model.evaluate(input, output, verbose=0)
-
-        ###Below is temporary
-        # make predictions with model
         predictions = model.predict(input)
         rounded = [np.round(p) for p in predictions]
 
-        textBrowser.append(self.metricsCombo.currentText() + ': %.4f'%(metric) )  ###
-        textBrowser.append("Model Trained!")  ###
+        textBrowser.append(self.metricsCombo.currentText() + ': %.4f' % (metric_value))  ###
 
+        ###Below is temporary
         for i in range(columns):
-            textBrowser.append('%s -> %d (expected %d)' % (input[i].tolist(), rounded[i], output[i]))  ###?
-        self.close()
+            textBrowser.append(str(input[i].tolist()) + ' -> ' + str(predictions[i]) + ' (expected ' + str(output[i]) + ')')  ###?
+
+
 
 ## File functions ##
 
@@ -623,15 +635,13 @@ def get_inputOutput(path): ###NOT USED
         k+=1
     return input, output
 
-def train_model():
+def train_model_button():
     """Train button function"""
     ##INSERT CHECK FOR IF MODEL HAS BEEN CREATED, OR IF INPUT/OUTPUT SHAPE HAVE CHANGED
     if validModel():
         try: _, columns = read_file(trainFile_path, ',')
         except:
             pass
-
-        textBrowser.append("Training, could take a while...")    ###doesnt work
 
         if validPath(trainFile_path) and validColumns(inputCol_start, inputCol_end, outputCol_start, outputCol_end, columns) \
                 and validInputOutputShapes():
@@ -652,6 +662,80 @@ def train_model():
 
     else: #invalid model
         error = QMessageBox.warning(None, "Error", "\n   Invalid model.   \n")
+
+def train_model(optimizer, loss, metric, epochs, batch_size):
+    """Train the model with given parameters """
+    _, columns = read_file(trainFile_path, ',')
+    textBrowser.clear()
+
+    is_training = True
+    # get input and output columns
+    trainData = loadtxt(trainFile_path, delimiter=',')
+    input = trainData[:, inputCol_start:inputCol_end + 1]
+    output = trainData[:, outputCol_start:outputCol_end + 1]
+
+    # compile Keras model
+    model.compile(optimizer = optimizer,
+                  loss = loss,
+                  metrics=[metric])
+
+    # fit (train) the Keras model on the dataset
+    model.fit(input, output, epochs = epochs, batch_size = batch_size, verbose=0)
+    _, metric_value = model.evaluate(input, output, verbose=0)
+
+    is_training = False
+    ###Below is temporary
+    # make predictions with model
+    predictions = model.predict(input)
+    rounded = [np.round(p) for p in predictions]
+
+    textBrowser.append(metric + ': %.4f' % (metric_value))  ###
+    textBrowser.append("Model Trained!")  ###
+
+    for i in range(columns):
+        textBrowser.append('%s -> %d (expected %d)' % (input[i].tolist(), rounded[i], output[i]))  ###?
+
+class train_model_worker(QObject):
+    """Train Model Worker class to run on separate QThread"""
+    progress = pyqtSignal(str)
+    finished = pyqtSignal()
+
+    def set_parameters(self, optimizer_in, loss_in, metric_in, epochs_in, batch_size_in):
+        """Set parameters to use in training"""
+        self.optimizer = optimizer_in
+        self.loss = loss_in
+        self.metric = metric_in
+        self.epochs = epochs_in
+        self.batch_size = batch_size_in
+    def run(self):
+        """Train the model with given parameters """
+        _, columns = read_file(trainFile_path, ',')
+
+        is_training = True
+        # get input and output columns
+        trainData = loadtxt(trainFile_path, delimiter=',')
+        input = trainData[:, inputCol_start:inputCol_end + 1]
+        output = trainData[:, outputCol_start:outputCol_end + 1]
+
+        # compile Keras model
+        self.progress.emit("Compiling model...\n")
+        model.compile(optimizer=self.optimizer,
+                      loss=self.loss,
+                      metrics=[self.metric])
+        self.progress.emit("Model compiled.\n")
+
+        # fit (train) the Keras model on the dataset
+        self.progress.emit("Fitting model, could take a while...\n")
+        model.fit(input, output, epochs=self.epochs, batch_size=self.batch_size, verbose=0)
+        self.progress.emit("Model fit.\n")
+
+        is_training = False
+        self.finished.emit()
+
+def print_signal(string):
+    """Receives signals worker outputs progress to textBrowser"""
+    textBrowser.append(string)
+
 
 def test_model():
     """Test button function"""
@@ -710,7 +794,6 @@ def update_outputCols():
 
     outputCol_start = spinBox_outputStart.value()
     outputCol_end = spinBox_outputEnd.value()
-    print(outputCol_start, outputCol_end)   ###
 
 ## Layers Functions ##
 
@@ -893,11 +976,12 @@ activationFunctionDict = {"ReLu": tf.keras.activations.relu, "Sigmoid": tf.keras
                           "SeLu": tf.keras.activations.selu, "Elu": tf.keras.activations.elu, "Exponential": tf.keras.activations.exponential}
 output_layer_settingsDict = {"units": 0, "activation": "ReLu"} #To save output settings for Add and Delete button methods
 optimizerList = ['Adam', 'SGD', 'RMSprop', 'Adadelta', 'Adagrad', 'Adamax', 'Nadam', 'Ftrl']
-lossFunctionList = ['Mean Squared Error','Mean Squared Logarithmic Error', 'Huber', 'Binary Crossentropy', 'Sparse Categorical Crossentropy']
-lossFunctionList_lowercase = ['mean_squared_error','mean_squared_logarithmic_error', 'huber_loss','binary_crossentropy','sparse_categorical_crossentropy']
+lossFunctionList = ['Mean Squared Error','Mean Squared Logarithmic Error', 'Huber', 'Binary Crossentropy', 'Categorical Crossentropy']
+lossFunctionList_lowercase = ['mean_squared_error','mean_squared_logarithmic_error', 'huber_loss','binary_crossentropy','categorical_crossentropy']
 metricsList = ['Accuracy', 'Binary Accuracy','Mean Squared Error', 'Mean Absolute Error', 'Mean Absolute Percentage Error']
 metricsList_lowercase = ['accuracy', 'binary_accuracy', 'mean_squared_error','mean_absolute_error','mean_absolute_percentage_error']
 previous_train_settingsDict = {'optimizer': 'Adam', 'loss': 'Mean Squared Error', 'metric': 'Accuracy', 'epochs': 100, 'batch_size': 10}
+is_training = False
 ## Items ##
 
 #Train and test
@@ -966,7 +1050,7 @@ lineEdit_testFile.returnPressed.connect(update_testPath)
 lineEdit_testFile.textChanged.connect(update_testPath)
 
 #Train and test pushButtons
-pushButton_train.pressed.connect(train_model)
+pushButton_train.pressed.connect(train_model_button)
 pushButton_test.pressed.connect(test_model)
 
 #Add, delete, edit pushButtons
