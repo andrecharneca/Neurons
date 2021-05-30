@@ -1,4 +1,5 @@
 import sys
+import io
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
@@ -12,8 +13,8 @@ from numpy import loadtxt
 import numpy as np
 import time as time
 from qt_material import apply_stylesheet
+import ntpath
 import os
-import threading
 ## Console output reading function ##
 """def run(cmd):
     proc = subprocess.Popen(cmd,
@@ -120,10 +121,11 @@ class EditInputLayerPopupWindow(QWidget):
 
         self.activationFunction = QComboBox(self)
         self.activationFunction.addItems(activationFunctionList)
+        self.activationFunction.setCurrentIndex(activationFunctionList_lowercase.index(model.layers[0].get_config()['activation']))
         self.activationLabel = QLabel("Activation Function:",self)
 
         self.neurons = QSpinBox(self)
-        self.neurons.setValue(10)
+        self.neurons.setValue(model.layers[0].units)
         self.neurons.setMinimum(0)
         self.neuronsLabel = QLabel("Neurons:",self)
 
@@ -153,7 +155,7 @@ class EditInputLayerPopupWindow(QWidget):
 
     def make_changes(self):
         global model
-        layer = model.get_layer(name = "input")
+        layer = model.layers[0]
         layer.activation = activationFunctionDict[self.activationFunction.currentText()]
         layer.units = self.neurons.value()
         print(layer.get_config()) ###
@@ -174,6 +176,7 @@ class EditOutputLayerPopupWindow(QWidget):
 
         self.activationFunction = QComboBox(self)
         self.activationFunction.addItems(activationFunctionList)
+        self.activationFunction.setCurrentIndex(activationFunctionList_lowercase.index(model.layers[-1].get_config()['activation']))
         self.activationLabel = QLabel("Activation Function:",self)
 
         self.neuronsLabel = QLabel("Note: Number of neurons in output layer is the output shape.")
@@ -202,7 +205,7 @@ class EditOutputLayerPopupWindow(QWidget):
 
     def make_changes(self):
         global model
-        layer = model.get_layer(name = "output")
+        layer = model.layers[-1]
         layer.activation = activationFunctionDict[self.activationFunction.currentText()]
         print(layer.get_config()) ###
 
@@ -637,6 +640,7 @@ def get_inputOutput(path): ###NOT USED
 
 def train_model_button():
     """Train button function"""
+    global is_training
     ##INSERT CHECK FOR IF MODEL HAS BEEN CREATED, OR IF INPUT/OUTPUT SHAPE HAVE CHANGED
     if validModel():
         try: _, columns = read_file(trainFile_path, ',')
@@ -663,38 +667,6 @@ def train_model_button():
     else: #invalid model
         error = QMessageBox.warning(None, "Error", "\n   Invalid model.   \n")
 
-def train_model(optimizer, loss, metric, epochs, batch_size):
-    """Train the model with given parameters """
-    _, columns = read_file(trainFile_path, ',')
-    textBrowser.clear()
-
-    is_training = True
-    # get input and output columns
-    trainData = loadtxt(trainFile_path, delimiter=',')
-    input = trainData[:, inputCol_start:inputCol_end + 1]
-    output = trainData[:, outputCol_start:outputCol_end + 1]
-
-    # compile Keras model
-    model.compile(optimizer = optimizer,
-                  loss = loss,
-                  metrics=[metric])
-
-    # fit (train) the Keras model on the dataset
-    model.fit(input, output, epochs = epochs, batch_size = batch_size, verbose=0)
-    _, metric_value = model.evaluate(input, output, verbose=0)
-
-    is_training = False
-    ###Below is temporary
-    # make predictions with model
-    predictions = model.predict(input)
-    rounded = [np.round(p) for p in predictions]
-
-    textBrowser.append(metric + ': %.4f' % (metric_value))  ###
-    textBrowser.append("Model Trained!")  ###
-
-    for i in range(columns):
-        textBrowser.append('%s -> %d (expected %d)' % (input[i].tolist(), rounded[i], output[i]))  ###?
-
 class train_model_worker(QObject):
     """Train Model Worker class to run on separate QThread"""
     progress = pyqtSignal(str)
@@ -710,6 +682,7 @@ class train_model_worker(QObject):
     def run(self):
         """Train the model with given parameters """
         _, columns = read_file(trainFile_path, ',')
+        global is_training
 
         is_training = True
         # get input and output columns
@@ -726,7 +699,7 @@ class train_model_worker(QObject):
 
         # fit (train) the Keras model on the dataset
         self.progress.emit("Fitting model, could take a while...\n")
-        model.fit(input, output, epochs=self.epochs, batch_size=self.batch_size, verbose=0)
+        model.fit(input, output, epochs=self.epochs, batch_size=self.batch_size, verbose=1)   ###verbose)
         self.progress.emit("Model fit.\n")
 
         is_training = False
@@ -768,8 +741,8 @@ def validInputOutputShapes():
     """Checks if current selection of input and output columns
     is valid with the model's"""
     global model
-    model_inputDim = model.get_layer(name = 'input').input_shape[1] #number of inputs
-    model_outputDim = model.get_layer(name = 'output').units
+    model_inputDim = model.layers[0].input_shape[1] #number of inputs
+    model_outputDim = model.layers[-1].units #number of outpurs
     current_inputDim = inputCol_end - inputCol_start + 1
     current_outputDim = outputCol_end - outputCol_start + 1
 
@@ -842,7 +815,7 @@ def delete_hiddenLayer():
 
             #ReAdd output layer
             model.add(Dense(output_layer_settingsDict["units"], name = 'output'))
-            model.get_layer(name = "output").activation = activationFunctionDict[output_layer_settingsDict["activation"]]
+            model.layers[-1].activation = activationFunctionDict[output_layer_settingsDict["activation"]]
 
 
             print(model.summary())###
@@ -864,10 +837,10 @@ def add_hiddenLayer():
 def update_hiddenLayersList():
     """Updates hidden layers Qlist with hidden_layers list """
     global hidden_layers
-
     list_layers.clear()
-    for layer in hidden_layers:
-        list_layers.addItem(layer.name)
+    if hidden_layers != None:
+        for layer in hidden_layers:
+            list_layers.addItem(layer.name)
 
 def validLayerName(string, currentName=None):
     """Checks if layer name is valid
@@ -924,7 +897,69 @@ def new_model():
     else:
         error = QMessageBox.warning(None, "Error", "\n   Invalid input or output columns.   \n")
 
+def save_model():
+    if validModel():
+        #get save path
+        save_path, _ = QFileDialog.getSaveFileName(None, "Model", model_name + ".h5","H5 File (*.h5)", options=QFileDialog.Options())
+        if save_path[-3:] != ".h5": #checks if doesnt already have .h5 extension
+            save_path = save_path + ".h5"
 
+        #save model
+        model.save(save_path)
+
+    elif not validModel():
+        error = QMessageBox.warning(None, "Error", "\n   Invalid model.   \n")
+
+def load_model():
+    global hidden_layers
+    global model
+    """Load model from path"""
+    load_path, _ = QFileDialog.getOpenFileName(None,
+                                          "Load model from file",
+                                          "",
+                                          "H5 file (*.h5)",
+                                          options=QFileDialog.Options())
+
+    #warning
+    textBrowser.clear()
+    textBrowser.append("Loading model... \n Note: Loaded model must be Sequential with Dense type layers. First and last layers will be renamed 'input' and 'output', respectively.")
+
+    if validLoadModel(load_path):
+        tf.keras.backend.clear_session()
+        model = tf.keras.models.load_model(load_path) #load model from path
+
+        model_name = ntpath.basename(load_path)[:-3] #extracts file name from path, and removes '.h5'
+        label_modelName.setText("Model: " + model_name)
+
+        #rename first and last layers to 'input' and 'output'
+        model.layers[0]._name = 'input'
+        model.layers[-1]._name = 'output'
+
+        #add hidden layers to hidden_layers
+        hidden_layers = []
+        for layer in model.layers[1:len(model.layers)-1]:
+            hidden_layers.append(layer)
+        update_hiddenLayersList()
+
+        textBrowser.append("Model loaded successfully.")
+        print(model.summary()) ###
+
+    elif not validLoadModel(load_path):
+        error = QMessageBox.warning(None, "Error", "\n   Invalid model.   \n")
+        textBrowser.append("Model not loaded.")
+
+def validLoadModel(path):
+    """Checks if model in the path is valid for Neurons, that is:
+    - Is Sequential()
+    - All layers are Dense"""
+    loaded_model = keras.models.load_model(path)
+    is_valid = True
+    if not isinstance(loaded_model,tf.keras.Sequential): #checks if model is sequential
+        is_valid = False
+    for layer in loaded_model.layers: #checks if layers are Dense
+        if not isinstance(layer, tf.keras.layers.Dense):
+            is_valid = False
+    return is_valid
 #Themes
 def set_darkTheme():
     apply_stylesheet(app, theme='dark_custom.xml', extra=extra)
@@ -1139,14 +1174,13 @@ menuFile_newModel = menuFile.addAction("New model")
 menuFile_newModel.setShortcut("Ctrl+N")
 menuFile_newModel.triggered.connect(new_model)
 
-menuFile_newWeights = menuFile.addAction("New weights")
-menuFile_newWeights.setShortcut("Ctrl+Shift+N")
-
 menuFile_saveModel = menuFile.addAction("Save model")
+menuFile_saveModel.triggered.connect(save_model)
 menuFile_saveModel.setShortcut("Ctrl+S")
 
-menuFile_saveWeights = menuFile.addAction("Save weights")
-menuFile_saveWeights.setShortcut("Ctrl+Shift+S")
+menuFile_loadModel = menuFile.addAction("Load model")
+menuFile_loadModel.triggered.connect(load_model)
+menuFile_loadModel.setShortcut("Ctrl+L")
 
 menuTheme = menuBar.addMenu("&Theme")
 menuTheme_dark = menuTheme.addAction("&Dark")
@@ -1170,8 +1204,6 @@ mainLayout = QGridLayout(widget)
 
 mainLayout.addLayout(vbox_main, 0,0,0,0)
 window.setLayout(mainLayout)
-
-
 
 ## Testing ##
 extra = {

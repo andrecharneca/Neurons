@@ -2,6 +2,7 @@
 
 from numpy import loadtxt
 from keras.models import Sequential
+from keras.layers import Flatten
 from keras.layers import Dense
 import numpy as np
 import time
@@ -29,8 +30,9 @@ for i in range(n):
     #define Keras model
     model = Sequential()
     model.add(Dense(20, input_dim=2*ndays, activation='relu', name = 'input')) #1a layer, 12 nodes, ReLU activation functions
-    model.add(Dense(12, activation='relu')) #2a layer, 8 nodes
-    model.add(Dense(1, activation='sigmoid')) #3a layer, Sigmoid activation function for output in [0,1]
+    model.add(Dense(5, activation='relu', name = 'first_layer')) #2a layer, 8 nodes
+    #model.add(Flatten()) #testing flatten layer
+    model.add(Dense(1, activation='sigmoid', name = 'last_layer')) #3a layer, Sigmoid activation function for output in [0,1]
 
     print(model.get_layer(name='input').input_shape[1]) #number of inputs
 
@@ -38,7 +40,7 @@ for i in range(n):
     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
     #fit (train) the Keras model on the dataset
-    model.fit(x,y, epochs=10, batch_size=10, verbose=0)
+    model.fit(x,y, epochs=10, batch_size=10, verbose=1)
 
     #evaluate Keras model
     _, accuracy = model.evaluate(x, y, verbose=0)
@@ -46,7 +48,7 @@ for i in range(n):
     accuracy_mean += accuracy
 
     #save model to file if acc >98
-    if accuracy>=0.98:
+    """if accuracy>=0.98:
         #save model to json file
         model_json = model.to_json()
         with open("stocks_model_ndays2_e500_b10.json", "w") as json_file:
@@ -55,9 +57,10 @@ for i in range(n):
         #save weights to h5 file
         model.save_weights("stocks_model_ndays2_e500_b10.h5")
         print("Model saved to json file.")
-        break
+        break"""
 
-
+#save model
+model.save("my_model.h5")
 #end timer
 end = time.time()
 elapsed_time = end-start #in seconds
