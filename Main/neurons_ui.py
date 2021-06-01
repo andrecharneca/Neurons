@@ -15,15 +15,6 @@ import time as time
 from qt_material import apply_stylesheet
 import ntpath
 import os
-## Console output reading function ##
-"""def run(cmd):
-    proc = subprocess.Popen(cmd,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
-                            )
-    stdout, stderr = proc.communicate()
-
-    return proc.returncode, stdout, stderr"""
 
 ## Popup Window ##
 
@@ -105,6 +96,7 @@ class NewModelPopupWindow(QWidget):
 
         #update modelName label
         label_modelName.setText("Model: " + model_name)
+        is_trained = False
         self.close()
 
 class EditInputLayerPopupWindow(QWidget):
@@ -160,6 +152,7 @@ class EditInputLayerPopupWindow(QWidget):
         layer.units = self.neurons.value()
         print(layer.get_config()) ###
 
+        is_trained = False
         self.close()
 
 class EditOutputLayerPopupWindow(QWidget):
@@ -209,6 +202,7 @@ class EditOutputLayerPopupWindow(QWidget):
         layer.activation = activationFunctionDict[self.activationFunction.currentText()]
         print(layer.get_config()) ###
 
+        is_trained = False
         self.close()
 
 class EditHiddenLayerPopupWindow(QWidget):
@@ -292,6 +286,7 @@ class EditHiddenLayerPopupWindow(QWidget):
             self.listItem.setText(self.lineEdit.text())
 
             print(layer.get_config())###
+            is_trained = False
             self.close()
         else:
             error = QMessageBox.warning(None, "Error", "\n   Please insert valid layer name.   \n")
@@ -356,7 +351,6 @@ class AddHiddenLayerPopupWindow(QWidget):
         global model
         global list_layers
         if validLayerName(self.lineEdit.text()):
-            print("Name was valid!") ###
             #First pop output layer
             model.pop()
 
@@ -375,6 +369,7 @@ class AddHiddenLayerPopupWindow(QWidget):
             model.get_layer(name = "output").activation = activationFunctionDict[output_layer_settingsDict["activation"]]
 
             print(model.summary())###
+            is_trained = False
             self.close()
         else:
             error = QMessageBox.warning(None, "Error", "\n   Please insert valid layer name.   \n")
@@ -457,6 +452,7 @@ class TrainPopupWindow(QWidget):
         vbox.addLayout(hbox_buttons)
 
     def train(self):
+        ###ADD WARNING IF ALREADY TRAINING
         global textBrowser
         textBrowser.clear()
 
@@ -502,7 +498,75 @@ class TrainPopupWindow(QWidget):
         for i in range(columns):
             textBrowser.append(str(input[i].tolist()) + ' -> ' + str(predictions[i]) + ' (expected ' + str(output[i]) + ')')  ###?
 
+class TestPopupWindow(QWidget):
 
+    def __init__(self):
+        QWidget.__init__(self)
+        """mainLayout = QGridLayout(widget)
+        self.setLayout(mainLayout)"""
+
+        vbox_main = QVBoxLayout(self)
+        hbox_options = QHBoxLayout(self)
+        hbox_txtoutput = QHBoxLayout(self)
+        hbox_buttons = QHBoxLayout(self)
+
+        label_main = QLabel("Test (evaluate) model with selected input and output columns")
+        label_main.setAlignment(Qt.AlignCenter)
+        label_options = QLabel("Show plots: ", self)
+        label_txtoutput = QLabel("Save output to text file :")
+
+        pushButton_txtoutput = QPushButton("Browse", self)
+        pushButton_txtoutput.clicked.connect(self.get_output_file)
+        self.check_output_predicted_correct = QCheckBox("Predicted Vs Correct Output", self)
+        self.check_epochs_loss = QCheckBox("Epochs vs Loss", self)
+
+        pushButton_testModel = QPushButton("Test model", self)
+        pushButton_testModel.clicked.connect(self.test_model)
+
+        pushButton_cancel = QPushButton("Cancel", self)
+        pushButton_cancel.pressed.connect(self.close)
+
+        hbox_options.addWidget(label_options)
+        hbox_options.addWidget(self.check_output_predicted_correct)
+        hbox_options.addWidget(self.check_epochs_loss)
+        hbox_txtoutput.addWidget(label_txtoutput)
+        hbox_txtoutput.addWidget(pushButton_txtoutput, alignment=Qt.AlignLeft)
+
+        hbox_buttons.addWidget(pushButton_testModel)
+        hbox_buttons.addWidget(pushButton_cancel)
+
+        vbox_main.addWidget(label_main)
+        vbox_main.addLayout(hbox_options)
+        vbox_main.addLayout(hbox_txtoutput)
+        vbox_main.addLayout(hbox_buttons)
+        #mainLayout.addLayout(vbox_main,0,0,0,0)
+    def get_output_file(self):
+        """create/get file to print output"""
+        global outputFile_path
+        outputFile_path, _ = QFileDialog.getSaveFileName(None, "Select output text file", "","Text File (*.txt)", options=QFileDialog.Options())
+
+        if outputFile_path[-4:] != ".txt": #checks if doesnt already have .txt extension
+            outputFile_path = outputFile_path + ".txt"
+
+    def test_model(self):
+        """test model"""
+        global model_name
+        global model
+        global hidden_layers
+
+        textBrowser.clear()
+        textBrowser.append(
+            "Testing model with data from " + testFile_path + ". \nNote: This Evaluates the model, therefore the file should include input and output data.")
+
+        testData = loadtxt(testFile_path, delimiter=',')
+        input = testData[:, inputCol_start:inputCol_end + 1]
+        output = testData[:, outputCol_start:outputCol_end + 1]
+
+        losses, metrics = model.evaluate(input, output, verbose=0)
+
+        textBrowser.append("Losses: " + str(losses) + "\n Metrics: " + str(metrics)) ###
+
+        self.close()
 
 ## File functions ##
 
@@ -641,13 +705,12 @@ def get_inputOutput(path): ###NOT USED
 def train_model_button():
     """Train button function"""
     global is_training
-    ##INSERT CHECK FOR IF MODEL HAS BEEN CREATED, OR IF INPUT/OUTPUT SHAPE HAVE CHANGED
     if validModel():
         try: _, columns = read_file(trainFile_path, ',')
         except:
             pass
 
-        if validPath(trainFile_path) and validColumns(inputCol_start, inputCol_end, outputCol_start, outputCol_end, columns) \
+        if not is_training and validPath(trainFile_path) and validColumns(inputCol_start, inputCol_end, outputCol_start, outputCol_end, columns) \
                 and validInputOutputShapes():
             global trainPopup
             trainPopup = TrainPopupWindow()
@@ -660,9 +723,10 @@ def train_model_button():
 
         elif not validColumns(inputCol_start, inputCol_end, outputCol_start, outputCol_end, columns):
             error = QMessageBox.warning(None, "Error", "\n   Invalid input or output columns.   \n")
-
         elif not validInputOutputShapes():
             error = QMessageBox.warning(None, "Error", "\n   Invalid input or output shapes.   \n   Note: Can't change input or output size after\n creating model.   \n")
+        elif is_training:
+            error = QMessageBox.warning(None, "Error", "\n   Model currently training.   \n")
 
     else: #invalid model
         error = QMessageBox.warning(None, "Error", "\n   Invalid model.   \n")
@@ -683,6 +747,7 @@ class train_model_worker(QObject):
         """Train the model with given parameters """
         _, columns = read_file(trainFile_path, ',')
         global is_training
+        global is_trained
 
         is_training = True
         # get input and output columns
@@ -703,6 +768,7 @@ class train_model_worker(QObject):
         self.progress.emit("Model fit.\n")
 
         is_training = False
+        is_trained = True
         self.finished.emit()
 
 def print_signal(string):
@@ -710,23 +776,29 @@ def print_signal(string):
     textBrowser.append(string)
 
 
-def test_model():
+def test_model_button():
     """Test button function"""
     try: testData, columns = read_file(testFile_path, ',')
     except:
         pass
-    if validPath(testFile_path) and validColumns(inputCol_start, inputCol_end, outputCol_start, outputCol_end, columns):
-        """
-        code
-        """
-        textBrowser.clear()
-        print("file worked")    ###
+    if not is_training and is_trained and validPath(testFile_path) and validColumns(inputCol_start, inputCol_end, outputCol_start, outputCol_end, columns):
+        global testPopup
+        testPopup = TestPopupWindow()
+        testPopup.setGeometry(QRect(400, 400, 100, 100))
+        testPopup.setWindowTitle("Test current model")
+        testPopup.show()
 
     elif not validPath(testFile_path):
         error = QMessageBox.warning(None, "Error", "\n   Please select a testing file.   \n")
 
-    else:
+    elif not validColumns(inputCol_start, inputCol_end, outputCol_start, outputCol_end, columns):
         error = QMessageBox.warning(None, "Error", "\n   Invalid input or output columns.   \n")
+
+    elif is_training:
+        error = QMessageBox.warning(None, "Error", "\n   Model currently training.   \n")
+
+    elif not is_trained:
+        error = QMessageBox.warning(None, "Error", "\n   Model not yet trained.   \n")
 
 def validColumns(inputStart, inputEnd,outputStart, outputEnd, totalCols):
     """Checks if input/output columns are valid, given the file"""
@@ -900,7 +972,7 @@ def new_model():
 def save_model():
     if validModel():
         #get save path
-        save_path, _ = QFileDialog.getSaveFileName(None, "Model", model_name + ".h5","H5 File (*.h5)", options=QFileDialog.Options())
+        save_path, _ = QFileDialog.getSaveFileName(None, "Save model location", model_name + ".h5","H5 File (*.h5)", options=QFileDialog.Options())
         if save_path[-3:] != ".h5": #checks if doesnt already have .h5 extension
             save_path = save_path + ".h5"
 
@@ -988,6 +1060,7 @@ window.setCentralWidget(widget)
 # File paths
 trainFile_path = "../Data/diabetes_data.txt"
 testFile_path = None
+outputFile_path = None
 
 #Input/Output columns
 inputCol_start = 0
@@ -1017,6 +1090,7 @@ metricsList = ['Accuracy', 'Binary Accuracy','Mean Squared Error', 'Mean Absolut
 metricsList_lowercase = ['accuracy', 'binary_accuracy', 'mean_squared_error','mean_absolute_error','mean_absolute_percentage_error']
 previous_train_settingsDict = {'optimizer': 'Adam', 'loss': 'Mean Squared Error', 'metric': 'Accuracy', 'epochs': 100, 'batch_size': 10}
 is_training = False
+is_trained = False
 ## Items ##
 
 #Train and test
@@ -1086,7 +1160,7 @@ lineEdit_testFile.textChanged.connect(update_testPath)
 
 #Train and test pushButtons
 pushButton_train.pressed.connect(train_model_button)
-pushButton_test.pressed.connect(test_model)
+pushButton_test.pressed.connect(test_model_button)
 
 #Add, delete, edit pushButtons
 list_inputLayer.doubleClicked.connect(edit_inputLayer)
