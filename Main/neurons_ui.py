@@ -15,6 +15,7 @@ import time as time
 from qt_material import apply_stylesheet
 import ntpath
 import os
+import matplotlib as plt
 
 ## Popup Window ##
 
@@ -1034,12 +1035,12 @@ def validLoadModel(path):
     return is_valid
 #Themes
 def set_darkTheme():
-    apply_stylesheet(app, theme='dark_custom.xml', extra=extra)
+    apply_stylesheet(app, theme='dark_lightgreen.xml', extra=extra_dark)
     stylesheet = app.styleSheet()
     with open('../stylesheets/Qt_Material/custom_QtPushButton.css') as file:
         app.setStyleSheet(stylesheet + file.read().format(**os.environ))
 def set_lightTheme():
-    apply_stylesheet(app, theme='light_custom.xml',invert_secondary=False, extra=extra)
+    apply_stylesheet(app, theme='light_lightgreen.xml',invert_secondary=False, extra=extra_light)
     stylesheet = app.styleSheet()
     with open('../stylesheets/Qt_Material/custom_QtPushButton.css') as file:
         app.setStyleSheet(stylesheet + file.read().format(**os.environ))
@@ -1279,16 +1280,38 @@ mainLayout.addLayout(vbox_main, 0,0,0,0)
 window.setLayout(mainLayout)
 
 ## Testing ##
-extra = {
+extra_dark= {
     # Button colors
     'danger': '#dc3545',
     'warning': '#ffc107',
     'success': '#17a2b8',
-
+    'primaryColor': "#47DC95",
+    'primaryLightColor': "#bef67a",
+    'secondaryColor': '#232629',
+    'secondaryLightColor': '#4f5b62',
+    'secondaryDarkColor': '#31363b',
+    'primaryTextColor': '#000000',
+    'secondaryTextColor': '#ffffff',
     # Font
     'font-family': 'Montserrat',
 }
-apply_stylesheet(app, theme='dark_custom.xml', extra=extra)
+extra_light = {
+    # Button colors
+    'danger': '#dc3545',
+    'warning': '#ffc107',
+    'success': '#17a2b8',
+    'primaryColor': "#47b58b",
+    'primaryLightColor': "#9cff57",
+    'secondaryColor': '#f5f5f5',
+    'secondaryLightColor': '#ffffff',
+    'secondaryDarkColor': '#e6e6e6',
+    'primaryTextColor': '#3c3c3c',
+    'secondaryTextColor': '#555555',
+    # Font
+    'font-family': 'Montserrat',
+
+}
+apply_stylesheet(app, theme='dark_lightgreen.xml', extra=extra_dark)
 
 stylesheet = app.styleSheet()
 with open('../stylesheets/Qt_Material/custom_QtPushButton.css') as file:
