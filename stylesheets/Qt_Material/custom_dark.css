@@ -1,0 +1,53 @@
+QPushButton {{
+  color: {QTMATERIAL_SECONDARYCOLOR};
+  text-transform: none;
+  background-color: #47DC95;
+  margin: 0px;
+  padding: 0px 0px;
+  height: 10px;
+  min-height: 10px;
+  max-height: 10px;
+  max-width: 120px;
+  font-weight: bold;
+  font-size: 15px;
+  font-family: "Montserrat";
+  border-radius: 6px;
+  padding: 4px 8px;
+  height: 14px;
+
+
+}}
+QSpinBox{{
+  font-size: 14px;
+  font-family: "Montserrat";
+}}
+QComboBox{{
+  font-size: 14px;
+  font-family: "Montserrat";
+}}
+QTextBrowser{{
+  font-size: 15px;
+  font-family: "Montserrat";
+  color: #47DC95;
+}}
+QLineEdit{{
+  height: 18px;
+  font-size: 14px;
+  font-family: "Montserrat";
+}}
+QLabel{{
+  font-size: 15px;
+  font-family: "Montserrat";
+}}
+QListWidget{{
+  border: 1px solid #47DC95;
+  border-radius: 4px;
+  font-size: 15px;
+  font-family: "Montserrat";
+}}
+.big_button {{
+  height: 64px;
+}}
+QCheckBox{{
+  color: #47DC95;
+}}

@@ -15,7 +15,7 @@ import time as time
 from qt_material import apply_stylesheet
 import ntpath
 import os
-import matplotlib as plt
+import matplotlib.pyplot as plt
 
 ## Popup Window ##
 
@@ -453,33 +453,35 @@ class TrainPopupWindow(QWidget):
         vbox.addLayout(hbox_buttons)
 
     def train(self):
-        ###ADD WARNING IF ALREADY TRAINING
-        global textBrowser
-        textBrowser.clear()
+        if not is_training:
+            global textBrowser
+            textBrowser.clear()
 
-        #update previous settings
-        previous_train_settingsDict['optimizer'] = self.optimizerCombo.currentText()
-        previous_train_settingsDict['loss'] = self.lossCombo.currentText()
-        previous_train_settingsDict['metric'] = self.metricsCombo.currentText()
-        previous_train_settingsDict['epochs'] = self.epochsSpin.value()
-        previous_train_settingsDict['batch_size'] = self.batchSpin.value()
+            #update previous settings
+            previous_train_settingsDict['optimizer'] = self.optimizerCombo.currentText()
+            previous_train_settingsDict['loss'] = self.lossCombo.currentText()
+            previous_train_settingsDict['metric'] = self.metricsCombo.currentText()
+            previous_train_settingsDict['epochs'] = self.epochsSpin.value()
+            previous_train_settingsDict['batch_size'] = self.batchSpin.value()
 
-        self.thread = QThread()
+            self.thread = QThread()
 
-        self.worker = train_model_worker()
-        self.worker.set_parameters(self.optimizerCombo.currentText(), lossFunctionList_lowercase[lossFunctionList.index(self.lossCombo.currentText())], metricsList_lowercase[metricsList.index(self.metricsCombo.currentText())], self.epochsSpin.value(), self.batchSpin.value())
-        self.worker.moveToThread(self.thread)
+            self.worker = train_model_worker()
+            self.worker.set_parameters(self.optimizerCombo.currentText(), lossFunctionList_lowercase[lossFunctionList.index(self.lossCombo.currentText())], metricsList_lowercase[metricsList.index(self.metricsCombo.currentText())], self.epochsSpin.value(), self.batchSpin.value())
+            self.worker.moveToThread(self.thread)
 
-        self.thread.started.connect(self.worker.run)
-        self.worker.progress.connect(print_signal)
-        self.worker.finished.connect(self.thread.quit)
-        self.worker.finished.connect(self.worker.deleteLater)
-        self.worker.finished.connect(self.print_metric)
-        self.thread.finished.connect(self.thread.deleteLater)
-        self.thread.finished.connect(self.close)
+            self.thread.started.connect(self.worker.run)
+            self.worker.progress.connect(print_signal)
+            self.worker.finished.connect(self.thread.quit)
+            self.worker.finished.connect(self.worker.deleteLater)
+            self.worker.finished.connect(self.print_metric)
+            self.thread.finished.connect(self.thread.deleteLater)
+            self.thread.finished.connect(self.close)
 
-        # start the thread
-        self.thread.start()
+            # start the thread
+            self.thread.start()
+        elif is_training:
+            error = QMessageBox.warning(None, "Error", "\n   Model currently training.   \n")
 
     def print_metric(self):
         """Prints metric for model"""
@@ -519,7 +521,8 @@ class TestPopupWindow(QWidget):
         pushButton_txtoutput = QPushButton("Browse", self)
         pushButton_txtoutput.clicked.connect(self.get_output_file)
         self.check_output_predicted_correct = QCheckBox("Predicted Vs Correct Output", self)
-        self.check_epochs_loss = QCheckBox("Epochs vs Loss", self)
+        self.check_metric_loss = QCheckBox("Metric vs Epochs",self)
+        self.check_epochs_loss = QCheckBox("Loss vs Epochs", self)
 
         pushButton_testModel = QPushButton("Test model", self)
         pushButton_testModel.clicked.connect(self.test_model)
@@ -530,6 +533,7 @@ class TestPopupWindow(QWidget):
         hbox_options.addWidget(label_options)
         hbox_options.addWidget(self.check_output_predicted_correct)
         hbox_options.addWidget(self.check_epochs_loss)
+        hbox_options.addWidget(self.check_metric_loss)
         hbox_txtoutput.addWidget(label_txtoutput)
         hbox_txtoutput.addWidget(pushButton_txtoutput, alignment=Qt.AlignLeft)
 
@@ -565,8 +569,30 @@ class TestPopupWindow(QWidget):
 
         losses, metrics = model.evaluate(input, output, verbose=0)
 
-        textBrowser.append("Losses: " + str(losses) + "\n Metrics: " + str(metrics)) ###
+        textBrowser.append("\nLosses: " + str(losses) + "\n Metrics: " + str(metrics)) ###
 
+        #checkbox options
+        if self.check_output_predicted_correct.isChecked():
+            ###FALTA IMPLEMENTAR PARA VARIOS OUTPUTS
+            predictions = model.predict(input)
+            xrangesize = max(output) - min(output)
+            yrangesize = max(predictions) - min(predictions)
+
+            x = np.linspace(min(output) - xrangesize/10,max(output) + xrangesize/10,100)
+
+            plt.plot(output, predictions,'b.', label = "Results")
+            plt.plot(x,x,'--g', label = "Predicted = True")
+            plt.xlim([min(output) - xrangesize/10,max(output) + xrangesize/10])
+            plt.ylim([min(predictions) - yrangesize/10,max(predictions) + yrangesize/10])
+            plt.title("True vs Predicted Output")
+            plt.xlabel("True Output")
+            plt.ylabel("Predicted Output")
+            plt.legend()
+
+            textBrowser.append("Output " + str(output))###
+            textBrowser.append("Predictions " + str(predictions))###
+
+            plt.show()
         self.close()
 
 ## File functions ##
@@ -717,6 +743,8 @@ def train_model_button():
             trainPopup = TrainPopupWindow()
             trainPopup.setGeometry(QRect(400, 400, 100, 100))
             trainPopup.setWindowTitle("Train current model")
+            trainPopup.setWindowIcon(QIcon(icon_path))
+
             trainPopup.show()
 
         elif not validPath(trainFile_path):
@@ -787,6 +815,8 @@ def test_model_button():
         testPopup = TestPopupWindow()
         testPopup.setGeometry(QRect(400, 400, 100, 100))
         testPopup.setWindowTitle("Test current model")
+        testPopup.setWindowIcon(QIcon(icon_path))
+
         testPopup.show()
 
     elif not validPath(testFile_path):
@@ -850,6 +880,7 @@ def edit_inputLayer():
         editPopup = EditInputLayerPopupWindow()
         editPopup.setGeometry(QRect(400, 400, 100, 100))
         editPopup.setWindowTitle("Edit Input layer")
+        editPopup.setWindowIcon(QIcon(icon_path))
         editPopup.show()
     else:
         error = QMessageBox.warning(None, "Error", "\n   Invalid model.   \n")
@@ -861,6 +892,7 @@ def edit_outputLayer():
         editPopup = EditOutputLayerPopupWindow()
         editPopup.setGeometry(QRect(400, 400, 100, 100))
         editPopup.setWindowTitle("Edit Output layer")
+        editPopup.setWindowIcon(QIcon(icon_path))
         editPopup.show()
     else:
         error = QMessageBox.warning(None, "Error", "\n   Invalid model.   \n")
@@ -872,6 +904,7 @@ def edit_hiddenLayer():
         editHiddenPopup = EditHiddenLayerPopupWindow(list_layers.currentItem())
         editHiddenPopup.setGeometry(QRect(400, 400, 100, 100))
         editHiddenPopup.setWindowTitle("Edit " + list_layers.currentItem().text())
+        editHiddenPopup.setWindowIcon(QIcon(icon_path))
         editHiddenPopup.show()
     elif list_layers.currentItem() != None:
         error = QMessageBox.warning(None,"Error","\n   Invalid model.   \n")
@@ -903,6 +936,8 @@ def add_hiddenLayer():
         addHiddenPopup = AddHiddenLayerPopupWindow()
         addHiddenPopup.setGeometry(QRect(400, 400, 100, 100))
         addHiddenPopup.setWindowTitle("Add hidden layer")
+        addHiddenPopup.setWindowIcon(QIcon(icon_path))
+
         addHiddenPopup.show()
     elif list_layers.currentItem() != None:
         error = QMessageBox.warning(None, "Error", "\n   Invalid model.   \n")
@@ -963,6 +998,8 @@ def new_model():
         popupWindow = NewModelPopupWindow()
         popupWindow.setGeometry(QRect(400, 400, 100, 100))
         popupWindow.setWindowTitle("New model")
+        popupWindow.setWindowIcon(QIcon(icon_path))
+
         popupWindow.show()
 
     elif not validPath(trainFile_path):
@@ -1035,24 +1072,25 @@ def validLoadModel(path):
     return is_valid
 #Themes
 def set_darkTheme():
-    apply_stylesheet(app, theme='dark_lightgreen.xml', extra=extra_dark)
+    apply_stylesheet(app, theme='dark_teal.xml', extra=extra_dark)
     stylesheet = app.styleSheet()
-    with open('../stylesheets/Qt_Material/custom_QtPushButton.css') as file:
+    with open('../stylesheets/Qt_Material/custom_dark.css') as file:
         app.setStyleSheet(stylesheet + file.read().format(**os.environ))
 def set_lightTheme():
-    apply_stylesheet(app, theme='light_lightgreen.xml',invert_secondary=False, extra=extra_light)
+    apply_stylesheet(app, theme='light_teal.xml',invert_secondary=False, extra=extra_light)
     stylesheet = app.styleSheet()
-    with open('../stylesheets/Qt_Material/custom_QtPushButton.css') as file:
+    with open('../stylesheets/Qt_Material/custom_light.css') as file:
         app.setStyleSheet(stylesheet + file.read().format(**os.environ))
 
 ### Main ###
 app = QApplication([])
 app_version = "1.0"
+icon_path = 'neurons_logo.png'
 app.setApplicationName("Neurons " + app_version)
 
 window = QMainWindow()
 window.setGeometry(500,200,800,650) #(position xy, size xy)
-window.setWindowIcon(QIcon('neurons_logo.png'))
+window.setWindowIcon(QIcon(icon_path))
 widget = QWidget(window)
 
 window.setCentralWidget(widget)
@@ -1292,8 +1330,7 @@ extra_dark= {
     'secondaryDarkColor': '#31363b',
     'primaryTextColor': '#000000',
     'secondaryTextColor': '#ffffff',
-    # Font
-    'font-family': 'Montserrat',
+
 }
 extra_light = {
     # Button colors
@@ -1307,14 +1344,12 @@ extra_light = {
     'secondaryDarkColor': '#e6e6e6',
     'primaryTextColor': '#3c3c3c',
     'secondaryTextColor': '#555555',
-    # Font
-    'font-family': 'Montserrat',
 
 }
-apply_stylesheet(app, theme='dark_lightgreen.xml', extra=extra_dark)
+apply_stylesheet(app, theme='dark_teal.xml', extra=extra_dark, invert_secondary=False)
 
 stylesheet = app.styleSheet()
-with open('../stylesheets/Qt_Material/custom_QtPushButton.css') as file:
+with open('../stylesheets/Qt_Material/custom_dark.css') as file:
     app.setStyleSheet(stylesheet + file.read().format(**os.environ))
 
 ###app.setStyleSheet(qdarkstyle.load_stylesheet())
