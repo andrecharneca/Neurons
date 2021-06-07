@@ -1046,11 +1046,12 @@ def set_lightTheme():
 
 ### Main ###
 app = QApplication([])
-app.setApplicationName("Neurons 1.0")
+app_version = "1.0"
+app.setApplicationName("Neurons " + app_version)
 
 window = QMainWindow()
 window.setGeometry(500,200,800,650) #(position xy, size xy)
-
+window.setWindowIcon(QIcon('neurons_logo.png'))
 widget = QWidget(window)
 
 window.setCentralWidget(widget)
@@ -1271,8 +1272,6 @@ vbox_main.addLayout(hbox_top)
 vbox_main.addWidget(textBrowserLabel)
 vbox_main.addWidget(textBrowser)
 
-
-
 ## Main Layout ##
 mainLayout = QGridLayout(widget)
 
@@ -1295,7 +1294,7 @@ stylesheet = app.styleSheet()
 with open('../stylesheets/Qt_Material/custom_QtPushButton.css') as file:
     app.setStyleSheet(stylesheet + file.read().format(**os.environ))
 
-#app.setStyleSheet(qdarkstyle.load_stylesheet())
+###app.setStyleSheet(qdarkstyle.load_stylesheet())
 
 if __name__ == "__main__":
     window.show()
