@@ -84,7 +84,7 @@ class NewModelPopupWindow(QWidget):
         inputDim = inputCol_end - inputCol_start + 1
         outputDim = outputCol_end - outputCol_start + 1
 
-        model.add(Dense(inputDim, input_dim=inputDim, activation='relu', name = 'input'))
+        model.add(Dense(8, input_dim=inputDim, activation='relu', name = 'input'))
         model.add(Dense(12, activation = 'relu', name = 'Layer_1')) ###?
 
         #Change output settings for Delete and Add buttons
@@ -386,6 +386,7 @@ class TrainPopupWindow(QWidget):
         hbox_metrics = QHBoxLayout(self)
         hbox_fit = QHBoxLayout(self)
         hbox_buttons = QHBoxLayout(self)
+        hbox_show = QHBoxLayout(self)
 
         #for max value of batch size
         trainData = loadtxt(trainFile_path, delimiter=',')
@@ -417,6 +418,10 @@ class TrainPopupWindow(QWidget):
         self.batchSpin.setValue(previous_train_settingsDict['batch_size'])
         self.batchLabel = QLabel("Batch size: ")
 
+        label_show = QLabel("Show plots: ", self)
+        self.check_metric_loss = QCheckBox("Metric vs Epochs",self)
+        self.check_epochs_loss = QCheckBox("Loss vs Epochs", self)
+
         #set bold text
         """myFont = QFont()
         myFont.setBold(True)
@@ -444,12 +449,16 @@ class TrainPopupWindow(QWidget):
         hbox_fit.addWidget(self.batchSpin)
         hbox_buttons.addWidget(pushButton_trainModel)
         hbox_buttons.addWidget(pushButton_cancel)
+        hbox_show.addWidget(label_show)
+        hbox_show.addWidget(self.check_metric_loss)
+        hbox_show.addWidget(self.check_epochs_loss)
 
         vbox.addWidget(self.label)
         vbox.addLayout(hbox_optimizer)
         vbox.addLayout(hbox_loss)
         vbox.addLayout(hbox_metrics)
         vbox.addLayout(hbox_fit)
+        vbox.addLayout(hbox_show)
         vbox.addLayout(hbox_buttons)
 
     def train(self):
@@ -477,7 +486,8 @@ class TrainPopupWindow(QWidget):
             self.worker.finished.connect(self.print_metric)
             self.thread.finished.connect(self.thread.deleteLater)
             self.thread.finished.connect(self.close)
-
+            #checkbox options
+            self.thread.finished.connect(self.show_plots)
             # start the thread
             self.thread.start()
         elif is_training:
@@ -497,9 +507,29 @@ class TrainPopupWindow(QWidget):
 
         textBrowser.append(self.metricsCombo.currentText() + ': %.4f' % (metric_value))  ###
 
-        ###Below is temporary
-        for i in range(columns):
-            textBrowser.append(str(input[i].tolist()) + ' -> ' + str(predictions[i]) + ' (expected ' + str(output[i]) + ')')  ###?
+        textBrowser.append('\nHere are some examples of inputs -> outputs for the trained model: \n')
+        sample_number = int(len(input)/10) + 1 if int(len(input)/10) + 1 <= 10 else 10
+
+        for i in range(sample_number):
+            k = np.random.randint(len(input) - 1)
+            textBrowser.append("Input: " + str(input[k].tolist()) + ' -> Output: ' + str(predictions[k]) + ' (true: ' + str(output[k]) + ')')
+
+    def show_plots(self):
+        """Show selected plots"""
+        if self.check_epochs_loss.isChecked():
+            plt.figure()
+            plt.plot(model_history.history['loss'])
+            plt.title('Model Loss')
+            plt.xlabel('Epoch')
+            plt.ylabel('Loss')
+        if self.check_metric_loss.isChecked():
+            plt.figure()
+            plt.plot(model_history.history[metricsList_lowercase[metricsList.index(self.metricsCombo.currentText())]])
+            plt.title('Model ' + self.metricsCombo.currentText())
+            plt.xlabel('Epoch')
+            plt.ylabel(self.metricsCombo.currentText())
+        if self.check_epochs_loss.isChecked() or self.check_metric_loss.isChecked():
+            plt.show()
 
 class TestPopupWindow(QWidget):
 
@@ -521,8 +551,7 @@ class TestPopupWindow(QWidget):
         pushButton_txtoutput = QPushButton("Browse", self)
         pushButton_txtoutput.clicked.connect(self.get_output_file)
         self.check_output_predicted_correct = QCheckBox("Predicted Vs Correct Output", self)
-        self.check_metric_loss = QCheckBox("Metric vs Epochs",self)
-        self.check_epochs_loss = QCheckBox("Loss vs Epochs", self)
+
 
         pushButton_testModel = QPushButton("Test model", self)
         pushButton_testModel.clicked.connect(self.test_model)
@@ -532,8 +561,6 @@ class TestPopupWindow(QWidget):
 
         hbox_options.addWidget(label_options)
         hbox_options.addWidget(self.check_output_predicted_correct)
-        hbox_options.addWidget(self.check_epochs_loss)
-        hbox_options.addWidget(self.check_metric_loss)
         hbox_txtoutput.addWidget(label_txtoutput)
         hbox_txtoutput.addWidget(pushButton_txtoutput, alignment=Qt.AlignLeft)
 
@@ -566,31 +593,43 @@ class TestPopupWindow(QWidget):
         testData = loadtxt(testFile_path, delimiter=',')
         input = testData[:, inputCol_start:inputCol_end + 1]
         output = testData[:, outputCol_start:outputCol_end + 1]
-
+        output_dim = outputCol_end - outputCol_start + 1
         losses, metrics = model.evaluate(input, output, verbose=0)
 
-        textBrowser.append("\nLosses: " + str(losses) + "\n Metrics: " + str(metrics)) ###
+        textBrowser.append("\nModel tested.")
 
         #checkbox options
         if self.check_output_predicted_correct.isChecked():
-            ###FALTA IMPLEMENTAR PARA VARIOS OUTPUTS
             predictions = model.predict(input)
-            xrangesize = max(output) - min(output)
-            yrangesize = max(predictions) - min(predictions)
 
-            x = np.linspace(min(output) - xrangesize/10,max(output) + xrangesize/10,100)
+            #Switch columns and lines on output
+            output_formatted = []
+            predictions_formatted =[]
+            for columns in range(output_dim):
+                temp_row_output = []
+                temp_row_predictions = []
+                for rows in range(len(output)):
+                    temp_row_output.append(output[rows][columns])
+                    temp_row_predictions.append(predictions[rows][columns])
+                output_formatted.append(temp_row_output)
+                predictions_formatted.append(temp_row_predictions)
 
-            plt.plot(output, predictions,'b.', label = "Results")
-            plt.plot(x,x,'--g', label = "Predicted = True")
-            plt.xlim([min(output) - xrangesize/10,max(output) + xrangesize/10])
-            plt.ylim([min(predictions) - yrangesize/10,max(predictions) + yrangesize/10])
-            plt.title("True vs Predicted Output")
-            plt.xlabel("True Output")
-            plt.ylabel("Predicted Output")
-            plt.legend()
+            #Show plot for each output
+            for i in range(output_dim):
+                xrangesize = max(output_formatted[i]) - min(output_formatted[i])
+                yrangesize = max(predictions_formatted[i]) - min(predictions_formatted[i])
 
-            textBrowser.append("Output " + str(output))###
-            textBrowser.append("Predictions " + str(predictions))###
+                x = np.linspace(min(output_formatted[i]) - xrangesize/10,max(output_formatted[i]) + xrangesize/10,100)
+
+                plt.figure()
+                plt.plot(output_formatted[i], predictions_formatted[i],'b.', label = "Results Output " + str(i+1))
+                plt.plot(x,x,'--g', label = "Predicted = True")
+                plt.xlim([min(output_formatted[i]) - xrangesize/10,max(output_formatted[i]) + xrangesize/10])
+                plt.ylim([min(predictions_formatted[i]) - yrangesize/10,max(predictions_formatted[i]) + yrangesize/10])
+                plt.title("True vs Predicted Output " + str(i+1))
+                plt.xlabel("True Output")
+                plt.ylabel("Predicted Output")
+                plt.legend()
 
             plt.show()
         self.close()
@@ -777,6 +816,7 @@ class train_model_worker(QObject):
         _, columns = read_file(trainFile_path, ',')
         global is_training
         global is_trained
+        global model_history
 
         is_training = True
         # get input and output columns
@@ -793,7 +833,7 @@ class train_model_worker(QObject):
 
         # fit (train) the Keras model on the dataset
         self.progress.emit("Fitting model, could take a while...\n")
-        model.fit(input, output, epochs=self.epochs, batch_size=self.batch_size, verbose=1)   ###verbose)
+        model_history = model.fit(input, output, epochs=self.epochs, batch_size=self.batch_size, verbose=1)   ###verbose)
         self.progress.emit("Model fit.\n")
 
         is_training = False
@@ -1115,6 +1155,7 @@ model = None
 hidden_layers = None
 model_name = ''
 popupWindow = None
+model_history = None #For Show Plots in TrainPopupWindow
 
 #Auxiliary lists and dicts
 activationFunctionList = ["ReLu", "Sigmoid", "SoftMax", "SoftPlus", "SoftSign", "Tanh", "SeLu", "Elu", "Exponential"]
