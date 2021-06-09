@@ -16,6 +16,7 @@ from qt_material import apply_stylesheet
 import ntpath
 import os
 import matplotlib.pyplot as plt
+import webbrowser
 
 ## Popup Window ##
 
@@ -585,6 +586,7 @@ class TestPopupWindow(QWidget):
         global model_name
         global model
         global hidden_layers
+        global outputFile_path
 
         textBrowser.clear()
         textBrowser.append(
@@ -632,6 +634,21 @@ class TestPopupWindow(QWidget):
                 plt.legend()
 
             plt.show()
+        if outputFile_path != None and outputFile_path != '.txt':
+            outputFile = open(outputFile_path, "w")
+            predictions = model.predict(input)
+            for j in range(len(predictions[0])):
+                outputFile.write("Output " + str(j+1))
+                if j < len(predictions[0]) - 1:
+                    outputFile.write(",")
+
+            for i in range(len(predictions)):
+                outputFile.write("\n")
+                for j in range(len(predictions[0])):
+                    outputFile.write(str(predictions[i][j]))
+                    if j < len(predictions[0]) - 1:
+                        outputFile.write(",")
+
         self.close()
 
 ## File functions ##
@@ -698,13 +715,16 @@ def open_testFile():  #open test data file
                         options=QFileDialog.Options())
     testFile_path = path
     lineEdit_testFile.setText(testFile_path)
-    """if path.find('.txt') != -1:  # .txt filter
-        testFile_path = path
-        lineEdit_testFile.setText(testFile_path)
-    else:
-        error = QErrorMessage()
-        error.showMessage("Please select a .txt file!")
-        error.exec()"""
+
+def open_predictFile():
+    global predictFile_path
+    path, _ = QFileDialog.getOpenFileName(None,
+                        "Predict with inputs from file",
+                        "",
+                        "Text files (*.txt)",
+                        options=QFileDialog.Options())
+    predictFile_path = path
+    lineEdit_predictFile.setText(predictFile_path)
 
 #Checks if path is a file
 def validPath(path):
@@ -738,15 +758,9 @@ def update_testPath():
     global testFile_path
     testFile_path = lineEdit_testFile.text()
 
-    """#Checks if its valid path
-    if validPath(path):
-        testFile_path = path
-        lineEdit_testFile.setText(testFile_path)
-        print(testFile_path)
-    else:
-        error = QErrorMessage()
-        error.showMessage("Please select .txt file!")
-        error.exec()"""
+def update_predictPath():
+    global predictFile_path
+    predictFile_path = lineEdit_predictFile.text()
 
 ## Train/Test ##
 def get_inputOutput(path): ###NOT USED
@@ -847,6 +861,9 @@ def print_signal(string):
 
 def test_model_button():
     """Test button function"""
+    global outputFile_path
+    outputFile_path = None
+
     try: testData, columns = read_file(testFile_path, ',')
     except:
         pass
@@ -1110,26 +1127,56 @@ def validLoadModel(path):
         if not isinstance(layer, tf.keras.layers.Dense):
             is_valid = False
     return is_valid
+
+def open_website():
+    webbrowser.open('https://sites.google.com/view/neuronsweb')
 #Themes
 def set_darkTheme():
     apply_stylesheet(app, theme='dark_teal.xml', extra=extra_dark)
     stylesheet = app.styleSheet()
     with open('../stylesheets/Qt_Material/custom_dark.css') as file:
         app.setStyleSheet(stylesheet + file.read().format(**os.environ))
+    pushButton_train.setIcon(QIcon(train_icon_path_dark))
+    pushButton_test.setIcon(QIcon(test_icon_path_dark))
+    pushButton_predict.setIcon(QIcon(predict_icon_path_dark))
+    pushButton_addLayer.setIcon(QIcon(add_icon_path_dark))
+    pushButton_deleteLayer.setIcon(QIcon(delete_icon_path_dark))
+    pushButton_editLayer.setIcon(QIcon(edit_icon_path_dark))
+
 def set_lightTheme():
     apply_stylesheet(app, theme='light_teal.xml',invert_secondary=False, extra=extra_light)
     stylesheet = app.styleSheet()
     with open('../stylesheets/Qt_Material/custom_light.css') as file:
         app.setStyleSheet(stylesheet + file.read().format(**os.environ))
+    pushButton_train.setIcon(QIcon(train_icon_path_light))
+    pushButton_test.setIcon(QIcon(test_icon_path_light))
+    pushButton_predict.setIcon(QIcon(predict_icon_path_light))
+    pushButton_addLayer.setIcon(QIcon(add_icon_path_light))
+    pushButton_deleteLayer.setIcon(QIcon(delete_icon_path_light))
+    pushButton_editLayer.setIcon(QIcon(edit_icon_path_light))
 
 ### Main ###
 app = QApplication([])
 app_version = "1.0"
-icon_path = 'neurons_logo.png'
+
+icon_path = '..\Icons\logo_neurons.png'
+train_icon_path_dark = '..\Icons\dumbbell_dark.png'
+train_icon_path_light = '..\Icons\dumbbell_light.png'
+test_icon_path_dark = '..\Icons\icon_test_dark.png'
+test_icon_path_light = '..\Icons\icon_test_light.png'
+predict_icon_path_dark = '../Icons/brainstorm_dark.png'
+predict_icon_path_light = '../Icons/brainstorm_light.png'
+add_icon_path_dark = '../Icons/add_dark.png'
+add_icon_path_light = '../Icons/add_light.png'
+delete_icon_path_dark = '../Icons/delete_dark.png'
+delete_icon_path_light = '../Icons/delete_light.png'
+edit_icon_path_dark = '../Icons/edit_dark.png'
+edit_icon_path_light = '../Icons/edit_light.png'
+
 app.setApplicationName("Neurons " + app_version)
 
 window = QMainWindow()
-window.setGeometry(500,200,800,650) #(position xy, size xy)
+window.setGeometry(500,200,800, 700) #(position xy, size xy)
 window.setWindowIcon(QIcon(icon_path))
 widget = QWidget(window)
 
@@ -1141,6 +1188,7 @@ window.setCentralWidget(widget)
 trainFile_path = "../Data/diabetes_data.txt"
 testFile_path = None
 outputFile_path = None
+predictFile_path = None
 
 #Input/Output columns
 inputCol_start = 0
@@ -1184,6 +1232,7 @@ label_modelName.setAlignment(Qt.AlignCenter)
 label_modelName.setMaximumHeight(40)
 label_trainFile = QLabel("Train File:", widget)
 label_testFile = QLabel("Test File:", widget)
+label_predictFile = QLabel("Predict:",widget)
 label_inputColumns = QLabel("Input Columns:", widget)
 label_outputColumns = QLabel("Output Columns:", widget)
 label_ToIn = QLabel("to", widget)
@@ -1191,11 +1240,17 @@ label_ToOut = QLabel("to", widget)
 
 lineEdit_trainFile = QLineEdit("../Data/diabetes_data.txt",widget)
 lineEdit_testFile = QLineEdit("Path to .txt testing file",widget)
+lineEdit_predictFile = QLineEdit("Path to .txt file with inputs only", widget)
 
 pushButton_trainFile = QPushButton("Browse", widget)
 pushButton_testFile = QPushButton("Browse", widget)
-pushButton_test = QPushButton("Test", widget)
-pushButton_train = QPushButton("Train", widget)
+pushButton_predictFile = QPushButton("Browse", widget)
+pushButton_test = QPushButton(" Test", widget)
+pushButton_test.setIcon(QIcon(test_icon_path_dark))
+pushButton_train = QPushButton(" Train", widget)
+pushButton_train.setIcon(QIcon(train_icon_path_dark))
+pushButton_predict = QPushButton(" Predict", widget)
+pushButton_predict.setIcon(QIcon(predict_icon_path_dark))
 
 spinBox_inputStart = QSpinBox(widget)
 spinBox_inputEnd = QSpinBox(widget)
@@ -1224,20 +1279,26 @@ label_layers.setFont(myFont)
 label_layers.setAlignment(Qt.AlignCenter)
 label_hiddenLayers = QLabel("Hidden Layers:", widget)
 
-pushButton_addLayer = QPushButton("Add", widget)
-pushButton_deleteLayer = QPushButton("Delete last", widget)
-pushButton_editLayer = QPushButton("Edit Hidden", widget)
+pushButton_addLayer = QPushButton(" Add", widget)
+pushButton_deleteLayer = QPushButton(" Delete last", widget)
+pushButton_editLayer = QPushButton(" Edit Hidden", widget)
+
+pushButton_addLayer.setIcon(QIcon(add_icon_path_dark))
+pushButton_deleteLayer.setIcon(QIcon(delete_icon_path_dark))
+pushButton_editLayer.setIcon(QIcon(edit_icon_path_dark))
 
 ## Connections ##
 #Train and test file pushButtons
 pushButton_trainFile.pressed.connect(open_trainFile) #open file browser
-pushButton_testFile.pressed.connect(open_testFile) #open file browser
-
+pushButton_testFile.pressed.connect(open_testFile)
+pushButton_predictFile.pressed.connect(open_predictFile)
 #Train and test file lineEdits
 lineEdit_trainFile.returnPressed.connect(update_trainPath)
 lineEdit_trainFile.textChanged.connect(update_trainPath)
 lineEdit_testFile.returnPressed.connect(update_testPath)
 lineEdit_testFile.textChanged.connect(update_testPath)
+lineEdit_predictFile.returnPressed.connect(update_predictPath)
+lineEdit_testFile.textChanged.connect(update_predictPath)
 
 #Train and test pushButtons
 pushButton_train.pressed.connect(train_model_button)
@@ -1271,6 +1332,12 @@ hbox_testFile.addWidget(label_testFile)
 hbox_testFile.addWidget(lineEdit_testFile)
 hbox_testFile.addWidget(pushButton_testFile)
 
+#Predict files Hbox
+hbox_predictFile = QHBoxLayout()
+hbox_predictFile.addWidget(label_predictFile)
+hbox_predictFile.addWidget(lineEdit_predictFile)
+hbox_predictFile.addWidget(pushButton_predictFile)
+
 #Input Columns Hbox
 hbox_inputColumns = QHBoxLayout()
 hbox_inputColumns.addWidget(label_inputColumns)
@@ -1285,10 +1352,13 @@ hbox_outputColumns.addWidget(spinBox_outputStart)
 hbox_outputColumns.addWidget(label_ToOut)
 hbox_outputColumns.addWidget(spinBox_outputEnd)
 
+
+
 #Train and test buttons Hbox
 hbox_trainTestButtons = QHBoxLayout()
 hbox_trainTestButtons.addWidget(pushButton_train)
 hbox_trainTestButtons.addWidget(pushButton_test)
+hbox_trainTestButtons.addWidget(pushButton_predict)
 
 #Layer buttons Hbox
 hbox_layerButtons = QHBoxLayout()
@@ -1299,6 +1369,7 @@ hbox_layerButtons.addWidget(pushButton_editLayer)
 #Top Hbox
 hbox_top = QHBoxLayout()
 
+
 ## VBoxes ##
 
 #Files and Train Test buttons Vbox
@@ -1306,11 +1377,19 @@ vbox_files = QVBoxLayout()
 vbox_files.addWidget(label_modelName)
 vbox_files.addLayout(hbox_trainFile)
 vbox_files.addLayout(hbox_testFile)
+vbox_files.addLayout(hbox_predictFile)
+
+h_line = QFrame(frameShape = "5")
+h_line.setFrameShape(QFrame.HLine)
+h_line.setLineWidth(20)
+h_line.setFrameShadow(QFrame.Sunken)
+vbox_files.addWidget(h_line)
+
 vbox_files.addLayout(hbox_inputColumns)
 vbox_files.addLayout(hbox_outputColumns)
 vbox_files.addLayout(hbox_trainTestButtons)
 
-#Layers List Hbox
+#Layers List Vbox
 vbox_layers = QVBoxLayout()
 vbox_layers.addWidget(label_layers)
 vbox_layers.addWidget(list_inputLayer)
@@ -1318,6 +1397,14 @@ vbox_layers.addWidget(label_hiddenLayers)
 vbox_layers.addWidget(list_layers)
 vbox_layers.addWidget(list_outputLayer)
 vbox_layers.addLayout(hbox_layerButtons)
+
+#Spacing Vbox
+vbox_spacing = QVBoxLayout()
+line = QFrame(frameShape = "5")
+line.setFrameShape(QFrame.VLine)
+line.setLineWidth(20)
+line.setFrameShadow(QFrame.Sunken)
+vbox_spacing.addWidget(line)
 
 #Main VBox
 vbox_main = QVBoxLayout()
@@ -1343,8 +1430,12 @@ menuTheme_dark.triggered.connect(set_darkTheme)
 menuTheme_light = menuTheme.addAction("&Light")
 menuTheme_light.triggered.connect(set_lightTheme)
 
+menuHelp = menuBar.addMenu("&Help")
+menuHelp_website = menuHelp.addAction("Website")
+menuHelp_website.triggered.connect(open_website)
 ## Ordering Boxes ##
 hbox_top.addLayout(vbox_files)
+hbox_top.addLayout(vbox_spacing)
 hbox_top.addLayout(vbox_layers)
 
 vbox_main.addWidget(menuBar)

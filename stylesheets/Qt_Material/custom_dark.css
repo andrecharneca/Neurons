@@ -51,3 +51,6 @@ QListWidget{{
 QCheckBox{{
   color: #47DC95;
 }}
+QFrame[frameShape="5"]{{
+  border-width: 0 2px 0 0;
+}}
