@@ -419,9 +419,10 @@ class TrainPopupWindow(QWidget):
         self.batchSpin.setValue(previous_train_settingsDict['batch_size'])
         self.batchLabel = QLabel("Batch size: ")
 
-        label_show = QLabel("Show plots: ", self)
-        self.check_metric_loss = QCheckBox("Metric vs Epochs",self)
-        self.check_epochs_loss = QCheckBox("Loss vs Epochs", self)
+        label_show = QLabel("Show: ", self)
+        self.check_metric_loss = QCheckBox("Metric vs Epochs Plot",self)
+        self.check_epochs_loss = QCheckBox("Loss vs Epochs Plot", self)
+        self.show_outputs_in_textBrowser = QCheckBox("Some outputs in main window", self)
 
         #set bold text
         """myFont = QFont()
@@ -453,6 +454,7 @@ class TrainPopupWindow(QWidget):
         hbox_show.addWidget(label_show)
         hbox_show.addWidget(self.check_metric_loss)
         hbox_show.addWidget(self.check_epochs_loss)
+        hbox_show.addWidget(self.show_outputs_in_textBrowser)
 
         vbox.addWidget(self.label)
         vbox.addLayout(hbox_optimizer)
@@ -508,12 +510,14 @@ class TrainPopupWindow(QWidget):
 
         textBrowser.append(self.metricsCombo.currentText() + ': %.4f' % (metric_value))  ###
 
-        textBrowser.append('\nHere are some examples of inputs -> outputs for the trained model: \n')
-        sample_number = int(len(input)/10) + 1 if int(len(input)/10) + 1 <= 10 else 10
+        #show examples of outputs in main window
+        if self.show_outputs_in_textBrowser.isChecked():
+            textBrowser.append('\nHere are some examples of inputs -> outputs for the trained model: \n')
+            sample_number = int(len(input)/10) + 1 if int(len(input)/10) + 1 <= 10 else 10
 
-        for i in range(sample_number):
-            k = np.random.randint(len(input) - 1)
-            textBrowser.append("Input: " + str(input[k].tolist()) + ' -> Output: ' + str(predictions[k]) + ' (true: ' + str(output[k]) + ')')
+            for i in range(sample_number):
+                k = np.random.randint(len(input) - 1)
+                textBrowser.append("Input: " + str(input[k].tolist()) + ' -> Output: ' + str(predictions[k]) + ' (true: ' + str(output[k]) + ')')
 
     def show_plots(self):
         """Show selected plots"""
@@ -583,9 +587,7 @@ class TestPopupWindow(QWidget):
 
     def test_model(self):
         """test model"""
-        global model_name
         global model
-        global hidden_layers
         global outputFile_path
 
         textBrowser.clear()
@@ -651,6 +653,102 @@ class TestPopupWindow(QWidget):
 
         self.close()
 
+class PredictPopupWindow(QWidget):
+
+    def __init__(self):
+        QWidget.__init__(self)
+        """mainLayout = QGridLayout(widget)
+        self.setLayout(mainLayout)"""
+
+        vbox_main = QVBoxLayout(self)
+        hbox_txtoutput = QHBoxLayout(self)
+        hbox_show = QHBoxLayout(self)
+        hbox_buttons = QHBoxLayout(self)
+
+        label_main = QLabel("Predict outputs for selected input columns")
+        label_main.setAlignment(Qt.AlignCenter)
+        label_txtoutput = QLabel("Save output to text file :")
+
+        pushButton_txtoutput = QPushButton("Browse", self)
+        pushButton_txtoutput.clicked.connect(self.get_output_file)
+
+
+        pushButton_predictOutputs = QPushButton("Predict", self)
+        pushButton_predictOutputs.clicked.connect(self.predict)
+
+        pushButton_cancel = QPushButton("Cancel", self)
+        pushButton_cancel.pressed.connect(self.close)
+
+        hbox_txtoutput.addWidget(label_txtoutput)
+        hbox_txtoutput.addWidget(pushButton_txtoutput, alignment=Qt.AlignLeft)
+
+        label_show = QLabel("Show: ", self)
+        self.show_outputs_in_textBrowser = QCheckBox("Some outputs in main window", self)
+
+        hbox_buttons.addWidget(pushButton_predictOutputs)
+        hbox_buttons.addWidget(pushButton_cancel)
+        hbox_show.addWidget(label_show)
+        hbox_show.addWidget(self.show_outputs_in_textBrowser)
+
+        vbox_main.addWidget(label_main)
+        vbox_main.addLayout(hbox_txtoutput)
+        vbox_main.addLayout(hbox_show)
+        vbox_main.addLayout(hbox_buttons)
+        #mainLayout.addLayout(vbox_main,0,0,0,0)
+    def get_output_file(self):
+        """create/get file to print output"""
+        global predict_outputsFile_path
+        predict_outputsFile_path, _ = QFileDialog.getSaveFileName(None, "Select output text file", "","Text File (*.txt)", options=QFileDialog.Options())
+
+        if predict_outputsFile_path[-4:] != ".txt": #checks if doesnt already have .txt extension
+            predict_outputsFile_path = predict_outputsFile_path + ".txt"
+
+    def predict(self):
+        """predict with current model"""
+        global model
+        global predict_outputsFile_path
+        global predictFile_path
+
+        if predict_outputsFile_path != None and predict_outputsFile_path != '.txt':
+            #info for textbrowser
+            textBrowser.clear()
+            textBrowser.append(
+                "Predicting outputs with current model with data from " + predictFile_path + ". \nNote: This uses the Predict method on the model, therefore the file should only input data is used.")
+
+            #Predict
+            predictData = loadtxt(predictFile_path, delimiter=',')
+            input = predictData[:, inputCol_start:inputCol_end + 1]
+            predictions = model.predict(input)
+
+            #Write to file
+            outputFile = open(predict_outputsFile_path, "w")
+            for j in range(len(predictions[0])):
+                outputFile.write("Output " + str(j + 1))
+                if j < len(predictions[0]) - 1:
+                    outputFile.write(",")
+
+            for i in range(len(predictions)):
+                outputFile.write("\n")
+                for j in range(len(predictions[0])):
+                    outputFile.write(str(predictions[i][j]))
+                    if j < len(predictions[0]) - 1:
+                        outputFile.write(",")
+
+            textBrowser.append("\nPredicted outputs generated and output to: " + predict_outputsFile_path + ".")
+
+            # show examples of outputs in main window
+            if self.show_outputs_in_textBrowser.isChecked():
+                textBrowser.append('\nHere are some examples of predictions made with the model: \n')
+                sample_number = int(len(input) / 10) + 1 if int(len(input) / 10) + 1 <= 10 else 10
+
+                for i in range(sample_number):
+                    k = np.random.randint(len(input) - 1)
+                    textBrowser.append(
+                        "Input: " + str(input[k].tolist()) + ' -> Output: ' + str(predictions[k]))
+            self.close()
+        else:
+            error = QMessageBox.warning(None, "Error", "\n   Please select an output file.   \n")
+
 ## File functions ##
 
 #Read data file
@@ -698,13 +796,6 @@ def open_trainFile():  #open train data file
                         options=QFileDialog.Options())
     trainFile_path = path
     lineEdit_trainFile.setText(trainFile_path)
-    """if path.find('.txt') != -1: # .txt filter WITH "OPTIONS" I DONT NEED THIS
-        trainFile_path = path
-        lineEdit_trainFile.setText(trainFile_path)
-    else:
-        error = QErrorMessage()
-        error.showMessage("Please select a .txt file!")
-        error.exec()"""
 
 def open_testFile():  #open test data file
     global testFile_path
@@ -743,16 +834,6 @@ def validPath(path):
 def update_trainPath():
     global trainFile_path
     trainFile_path = lineEdit_trainFile.text()
-
-    """#Checks if its valid path
-    if validPath(path):
-        trainFile_path = path
-        lineEdit_trainFile.setText(trainFile_path)
-        print(trainFile_path)
-    else:
-        error = QErrorMessage()
-        error.showMessage("Please select .txt file!")
-        error.exec()"""
 
 def update_testPath():
     global testFile_path
@@ -858,7 +939,6 @@ def print_signal(string):
     """Receives signals worker outputs progress to textBrowser"""
     textBrowser.append(string)
 
-
 def test_model_button():
     """Test button function"""
     global outputFile_path
@@ -867,7 +947,8 @@ def test_model_button():
     try: testData, columns = read_file(testFile_path, ',')
     except:
         pass
-    if not is_training and is_trained and validPath(testFile_path) and validColumns(inputCol_start, inputCol_end, outputCol_start, outputCol_end, columns):
+    if not is_training and is_trained and validPath(testFile_path) and validColumns(inputCol_start, inputCol_end, outputCol_start, outputCol_end, columns) \
+            and validInputOutputShapes():
         global testPopup
         testPopup = TestPopupWindow()
         testPopup.setGeometry(QRect(400, 400, 100, 100))
@@ -882,6 +963,43 @@ def test_model_button():
     elif not validColumns(inputCol_start, inputCol_end, outputCol_start, outputCol_end, columns):
         error = QMessageBox.warning(None, "Error", "\n   Invalid input or output columns.   \n")
 
+    elif not validInputOutputShapes():
+        error = QMessageBox.warning(None, "Error", "\n   Invalid input or output shapes.   \n   Note: Can't change input or output size after\n creating model.   \n")
+
+    elif is_training:
+        error = QMessageBox.warning(None, "Error", "\n   Model currently training.   \n")
+
+    elif not is_trained:
+        error = QMessageBox.warning(None, "Error", "\n   Model not yet trained.   \n")
+
+def predict_button():
+    """Predict button function"""
+    global predictFile_path
+    global predict_outputsFile_path
+    predict_outputsFile_path = None
+
+    try: predictData, columns = read_file(predictFile_path, ',')
+    except:
+        pass
+    if not is_training and is_trained and validPath(predictFile_path) and validPredictColumns(inputCol_start, inputCol_end, columns)\
+            and validInputShape():
+        global predictPopup
+        predictPopup = PredictPopupWindow()
+        predictPopup.setGeometry(QRect(400, 400, 300, 100))
+        predictPopup.setWindowTitle("Predict outputs")
+        predictPopup.setWindowIcon(QIcon(icon_path))
+
+        predictPopup.show()
+
+    elif not validPath(predictFile_path):
+        error = QMessageBox.warning(None, "Error", "\n   Please select a file with inputs to predict.   \n")
+
+    elif not validPredictColumns(inputCol_start, inputCol_end, columns):
+        error = QMessageBox.warning(None, "Error", "\n   Invalid input columns.   \n")
+
+    elif not validInputShape():
+        error = QMessageBox.warning(None, "Error", "\n   Invalid input shape.   \n   Note: Can't change input or output size after\n creating model.   \n")
+
     elif is_training:
         error = QMessageBox.warning(None, "Error", "\n   Model currently training.   \n")
 
@@ -889,10 +1007,17 @@ def test_model_button():
         error = QMessageBox.warning(None, "Error", "\n   Model not yet trained.   \n")
 
 def validColumns(inputStart, inputEnd,outputStart, outputEnd, totalCols):
-    """Checks if input/output columns are valid, given the file"""
+    """Checks if input/output columns are valid"""
     if inputEnd >= inputStart and outputEnd>=outputStart and (outputStart > inputEnd or inputStart > outputEnd) \
             and max([inputStart, inputEnd, outputStart, outputEnd]) <= (totalCols - 1):
 
+        return True
+    else:
+        return False
+
+def validPredictColumns(inputStart, inputEnd, totalCols):
+    """Checks only if input columns are valid"""
+    if inputEnd >= inputStart and max([inputStart, inputEnd]) <= (totalCols - 1):
         return True
     else:
         return False
@@ -902,7 +1027,7 @@ def validInputOutputShapes():
     is valid with the model's"""
     global model
     model_inputDim = model.layers[0].input_shape[1] #number of inputs
-    model_outputDim = model.layers[-1].units #number of outpurs
+    model_outputDim = model.layers[-1].units #number of outputs
     current_inputDim = inputCol_end - inputCol_start + 1
     current_outputDim = outputCol_end - outputCol_start + 1
 
@@ -912,6 +1037,18 @@ def validInputOutputShapes():
     else:
         return True
 
+def validInputShape():
+    """Checks if current selection of input columns
+    is valid with the model's (for Predict function)"""
+    global model
+    model_inputDim = model.layers[0].input_shape[1] #number of inputs
+    current_inputDim = inputCol_end - inputCol_start + 1
+
+    #Non compatible shapes
+    if model_inputDim != current_inputDim:
+        return False
+    else:
+        return True
 def update_inputCols():
     """Input spinBoxes function"""
     global inputCol_start
@@ -1065,7 +1202,8 @@ def new_model():
         error = QMessageBox.warning(None, "Error", "\n   Invalid input or output columns.   \n")
 
 def save_model():
-    if validModel():
+    """Save model function (currently only trained models)"""
+    if validModel() and is_trained and not is_training:
         #get save path
         save_path, _ = QFileDialog.getSaveFileName(None, "Save model location", model_name + ".h5","H5 File (*.h5)", options=QFileDialog.Options())
         if save_path[-3:] != ".h5": #checks if doesnt already have .h5 extension
@@ -1073,13 +1211,23 @@ def save_model():
 
         #save model
         model.save(save_path)
+        ###below is temporary BUG
+        print(model.summary())  ###
+        loaded_model = keras.models.load_model(save_path)
+        print(loaded_model.summary())###
 
     elif not validModel():
         error = QMessageBox.warning(None, "Error", "\n   Invalid model.   \n")
+    elif not is_trained:
+        error = QMessageBox.warning(None, "Error", "\n   Model not yet trained.   \n")
+    elif is_training:
+        error = QMessageBox.warning(None, "Error", "\n   Model currently training.   \n")
+
 
 def load_model():
     global hidden_layers
     global model
+    global is_trained
     """Load model from path"""
     load_path, _ = QFileDialog.getOpenFileName(None,
                                           "Load model from file",
@@ -1089,9 +1237,10 @@ def load_model():
 
     #warning
     textBrowser.clear()
-    textBrowser.append("Loading model... \n Note: Loaded model must be Sequential with Dense type layers. First and last layers will be renamed 'input' and 'output', respectively.")
+    textBrowser.append("Loading model... \nNote: Loaded model must be Sequential with Dense type layers, and must have already been trained (compile and fit). First and last layers will be renamed 'input' and 'output', respectively.\n")
 
-    if validLoadModel(load_path):
+    if validLoadModel(load_path) and not is_training:
+        is_trained = 1 #currently only accepting trained models
         tf.keras.backend.clear_session()
         model = tf.keras.models.load_model(load_path) #load model from path
 
@@ -1114,12 +1263,20 @@ def load_model():
     elif not validLoadModel(load_path):
         error = QMessageBox.warning(None, "Error", "\n   Invalid model.   \n")
         textBrowser.append("Model not loaded.")
+    elif is_training:
+        error = QMessageBox.warning(None, "Error", "\n   Model currently training.   \n")
+        textBrowser.append("Model not loaded.")
+
 
 def validLoadModel(path):
     """Checks if model in the path is valid for Neurons, that is:
     - Is Sequential()
     - All layers are Dense"""
-    loaded_model = keras.models.load_model(path)
+    try:
+        loaded_model = keras.models.load_model(path)
+    except:
+        print("hi")###
+        return False
     is_valid = True
     if not isinstance(loaded_model,tf.keras.Sequential): #checks if model is sequential
         is_valid = False
@@ -1189,7 +1346,7 @@ trainFile_path = "../Data/diabetes_data.txt"
 testFile_path = None
 outputFile_path = None
 predictFile_path = None
-
+predict_outputsFile_path = None
 #Input/Output columns
 inputCol_start = 0
 inputCol_end = 0
@@ -1225,11 +1382,12 @@ is_trained = False
 #Train and test
 myFont = QFont() #Bold font
 myFont.setBold(True)
-myFont.setPointSize(15)
+myFont.setPointSize(30)
 label_modelName = QLabel("Model: No model selected")
 label_modelName.setFont(myFont)
 label_modelName.setAlignment(Qt.AlignCenter)
 label_modelName.setMaximumHeight(40)
+
 label_trainFile = QLabel("Train File:", widget)
 label_testFile = QLabel("Test File:", widget)
 label_predictFile = QLabel("Predict:",widget)
@@ -1253,9 +1411,13 @@ pushButton_predict = QPushButton(" Predict", widget)
 pushButton_predict.setIcon(QIcon(predict_icon_path_dark))
 
 spinBox_inputStart = QSpinBox(widget)
+spinBox_inputStart.setMaximum(100000)
 spinBox_inputEnd = QSpinBox(widget)
+spinBox_inputEnd.setMaximum(100000)
 spinBox_outputStart = QSpinBox(widget)
+spinBox_outputStart.setMaximum(100000)
 spinBox_outputEnd = QSpinBox(widget)
+spinBox_outputEnd.setMaximum(100000)
 
 #Text Browser
 textBrowser = QTextBrowser(widget)
@@ -1303,6 +1465,7 @@ lineEdit_testFile.textChanged.connect(update_predictPath)
 #Train and test pushButtons
 pushButton_train.pressed.connect(train_model_button)
 pushButton_test.pressed.connect(test_model_button)
+pushButton_predict.pressed.connect(predict_button)
 
 #Add, delete, edit pushButtons
 list_inputLayer.doubleClicked.connect(edit_inputLayer)
@@ -1352,8 +1515,6 @@ hbox_outputColumns.addWidget(spinBox_outputStart)
 hbox_outputColumns.addWidget(label_ToOut)
 hbox_outputColumns.addWidget(spinBox_outputEnd)
 
-
-
 #Train and test buttons Hbox
 hbox_trainTestButtons = QHBoxLayout()
 hbox_trainTestButtons.addWidget(pushButton_train)
@@ -1368,7 +1529,6 @@ hbox_layerButtons.addWidget(pushButton_editLayer)
 
 #Top Hbox
 hbox_top = QHBoxLayout()
-
 
 ## VBoxes ##
 
