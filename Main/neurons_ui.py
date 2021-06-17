@@ -357,18 +357,19 @@ class AddHiddenLayerPopupWindow(QWidget):
             model.pop()
 
             #Add new layer
-            model.add(Dense(12, activation = 'relu', name = self.lineEdit.text()))
-            layer = model.get_layer(name = self.lineEdit.text())
+            model.add(tf.keras.layers.Dense(units = self.neurons.value(), activation = 'relu'))
+            layer = model.layers[-1]
             layer.activation = activationFunctionDict[self.activationFunction.currentText()]
-            layer.units = self.neurons.value()
+            layer._name = self.lineEdit.text()
             #Add listItem to list
             hidden_layers.append(model.get_layer(layer.name))
             list_layers.addItem(layer.name)
             update_hiddenLayersList()
 
             #ReAdd output layer
-            model.add(Dense(output_layer_settingsDict["units"], name = 'output'))
-            model.get_layer(name = "output").activation = activationFunctionDict[output_layer_settingsDict["activation"]]
+            model.add(tf.keras.layers.Dense(output_layer_settingsDict["units"], activation = 'relu'))
+            model.layers[-1].activation = activationFunctionDict[output_layer_settingsDict["activation"]]
+            model.layers[-1]._name = 'output'
 
             print(model.summary())###
             is_trained = False
@@ -1049,6 +1050,7 @@ def validInputShape():
         return False
     else:
         return True
+
 def update_inputCols():
     """Input spinBoxes function"""
     global inputCol_start
@@ -1114,7 +1116,7 @@ def delete_hiddenLayer():
             update_hiddenLayersList()
 
             #ReAdd output layer
-            model.add(Dense(output_layer_settingsDict["units"], name = 'output'))
+            model.add(tf.keras.layers.Dense(output_layer_settingsDict["units"], name = 'output'))
             model.layers[-1].activation = activationFunctionDict[output_layer_settingsDict["activation"]]
 
 
@@ -1211,10 +1213,6 @@ def save_model():
 
         #save model
         model.save(save_path)
-        ###below is temporary BUG
-        print(model.summary())  ###
-        loaded_model = keras.models.load_model(save_path)
-        print(loaded_model.summary())###
 
     elif not validModel():
         error = QMessageBox.warning(None, "Error", "\n   Invalid model.   \n")
@@ -1222,7 +1220,6 @@ def save_model():
         error = QMessageBox.warning(None, "Error", "\n   Model not yet trained.   \n")
     elif is_training:
         error = QMessageBox.warning(None, "Error", "\n   Model currently training.   \n")
-
 
 def load_model():
     global hidden_layers
@@ -1242,7 +1239,7 @@ def load_model():
     if validLoadModel(load_path) and not is_training:
         is_trained = 1 #currently only accepting trained models
         tf.keras.backend.clear_session()
-        model = tf.keras.models.load_model(load_path) #load model from path
+        model = keras.models.load_model(load_path) #load model from path
 
         model_name = ntpath.basename(load_path)[:-3] #extracts file name from path, and removes '.h5'
         label_modelName.setText("Model: " + model_name)
@@ -1267,16 +1264,15 @@ def load_model():
         error = QMessageBox.warning(None, "Error", "\n   Model currently training.   \n")
         textBrowser.append("Model not loaded.")
 
-
 def validLoadModel(path):
     """Checks if model in the path is valid for Neurons, that is:
     - Is Sequential()
     - All layers are Dense"""
     try:
-        loaded_model = keras.models.load_model(path)
+        loaded_model = tf.keras.models.load_model(path)
     except:
-        print("hi")###
         return False
+
     is_valid = True
     if not isinstance(loaded_model,tf.keras.Sequential): #checks if model is sequential
         is_valid = False
