@@ -7,8 +7,8 @@ import subprocess
 import qdarkstyle
 import tensorflow as tf
 from tensorflow import keras
-from keras.models import Sequential
-from keras.layers import Dense
+"""from keras.models import Sequential
+from keras.layers import Dense"""
 from numpy import loadtxt
 import numpy as np
 import time as time
@@ -18,6 +18,14 @@ import os
 import matplotlib.pyplot as plt
 import webbrowser
 
+def resource_path(relative_path):
+    """ Get the absolute path to the resource, for dev and PyInstaller"""
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 ## Popup Window ##
 
 class NewModelPopupWindow(QWidget):
@@ -73,23 +81,20 @@ class NewModelPopupWindow(QWidget):
         global output_layer_settingsDict
         global label_modelName
 
-        """INSERT CHECK FOR VALID NAME"""
-        """INSERT WARNING IF UNSAVED MODEL"""
-
         tf.keras.backend.clear_session()
 
         #Initialize new model
         hidden_layers = []
         model_name = self.lineEdit.text()
-        model = Sequential()
+        model = tf.keras.Sequential()###
         inputDim = inputCol_end - inputCol_start + 1
         outputDim = outputCol_end - outputCol_start + 1
 
-        model.add(Dense(8, input_dim=inputDim, activation='relu', name = 'input'))
-        model.add(Dense(12, activation = 'relu', name = 'Layer_1')) ###?
+        model.add(tf.keras.layers.Dense(8, input_dim=inputDim, activation='relu', name = 'input'))
+        model.add(tf.keras.layers.Dense(12, activation = 'relu', name = 'Layer_1')) ###?
 
         #Change output settings for Delete and Add buttons
-        model.add(Dense(outputDim, activation ='relu', name = 'output')) #name = 'dense' by default, then 'dense_1', etc
+        model.add(tf.keras.layers.Dense(outputDim, activation ='relu', name = 'output')) #name = 'dense' by default, then 'dense_1', etc
         output_layer_settingsDict["units"] = outputDim
         output_layer_settingsDict["activation"] = "ReLu"
 
@@ -1255,6 +1260,12 @@ def load_model():
         update_hiddenLayersList()
 
         textBrowser.append("Model loaded successfully.")
+        textBrowser.append("\nModel summary:\n")
+        #print model summary to textbrowser
+        stringlist = []
+        model.summary(print_fn=lambda x: stringlist.append(x))
+        short_model_summary = "\n".join(stringlist)
+        textBrowser.append(short_model_summary)
         print(model.summary()) ###
 
     elif not validLoadModel(load_path):
@@ -1287,7 +1298,7 @@ def open_website():
 def set_darkTheme():
     apply_stylesheet(app, theme='dark_teal.xml', extra=extra_dark)
     stylesheet = app.styleSheet()
-    with open('../stylesheets/Qt_Material/custom_dark.css') as file:
+    with open('stylesheets/Qt_Material/custom_dark.css') as file:
         app.setStyleSheet(stylesheet + file.read().format(**os.environ))
     pushButton_train.setIcon(QIcon(train_icon_path_dark))
     pushButton_test.setIcon(QIcon(test_icon_path_dark))
@@ -1299,7 +1310,7 @@ def set_darkTheme():
 def set_lightTheme():
     apply_stylesheet(app, theme='light_teal.xml',invert_secondary=False, extra=extra_light)
     stylesheet = app.styleSheet()
-    with open('../stylesheets/Qt_Material/custom_light.css') as file:
+    with open('stylesheets/Qt_Material/custom_light.css') as file:
         app.setStyleSheet(stylesheet + file.read().format(**os.environ))
     pushButton_train.setIcon(QIcon(train_icon_path_light))
     pushButton_test.setIcon(QIcon(test_icon_path_light))
@@ -1312,24 +1323,24 @@ def set_lightTheme():
 app = QApplication([])
 app_version = "1.0"
 
-icon_path = '..\Icons\logo_neurons.png'
-train_icon_path_dark = '..\Icons\dumbbell_dark.png'
-train_icon_path_light = '..\Icons\dumbbell_light.png'
-test_icon_path_dark = '..\Icons\icon_test_dark.png'
-test_icon_path_light = '..\Icons\icon_test_light.png'
-predict_icon_path_dark = '../Icons/brainstorm_dark.png'
-predict_icon_path_light = '../Icons/brainstorm_light.png'
-add_icon_path_dark = '../Icons/add_dark.png'
-add_icon_path_light = '../Icons/add_light.png'
-delete_icon_path_dark = '../Icons/delete_dark.png'
-delete_icon_path_light = '../Icons/delete_light.png'
-edit_icon_path_dark = '../Icons/edit_dark.png'
-edit_icon_path_light = '../Icons/edit_light.png'
+icon_path = 'Icons\logo_neurons.png'
+train_icon_path_dark = 'Icons\dumbbell_dark.png'
+train_icon_path_light = 'Icons\dumbbell_light.png'
+test_icon_path_dark = 'Icons\icon_test_dark.png'
+test_icon_path_light = 'Icons\icon_test_light.png'
+predict_icon_path_dark = 'Icons/brainstorm_dark.png'
+predict_icon_path_light = 'Icons/brainstorm_light.png'
+add_icon_path_dark = 'Icons/add_dark.png'
+add_icon_path_light = 'Icons/add_light.png'
+delete_icon_path_dark = 'Icons/delete_dark.png'
+delete_icon_path_light = 'Icons/delete_light.png'
+edit_icon_path_dark = 'Icons/edit_dark.png'
+edit_icon_path_light = 'Icons/edit_light.png'
 
 app.setApplicationName("Neurons " + app_version)
 
 window = QMainWindow()
-window.setGeometry(500,200,800, 700) #(position xy, size xy)
+window.setGeometry(500,200,900, 800) #(position xy, size xy)
 window.setWindowIcon(QIcon(icon_path))
 widget = QWidget(window)
 
@@ -1338,7 +1349,7 @@ window.setCentralWidget(widget)
 ## Variables ##
 
 # File paths
-trainFile_path = "../Data/diabetes_data.txt"
+trainFile_path = "Data/diabetes_data.txt"
 testFile_path = None
 outputFile_path = None
 predictFile_path = None
@@ -1392,7 +1403,7 @@ label_outputColumns = QLabel("Output Columns:", widget)
 label_ToIn = QLabel("to", widget)
 label_ToOut = QLabel("to", widget)
 
-lineEdit_trainFile = QLineEdit("../Data/diabetes_data.txt",widget)
+lineEdit_trainFile = QLineEdit("Data/diabetes_data.txt",widget)
 lineEdit_testFile = QLineEdit("Path to .txt testing file",widget)
 lineEdit_predictFile = QLineEdit("Path to .txt file with inputs only", widget)
 
@@ -1637,7 +1648,7 @@ extra_light = {
 apply_stylesheet(app, theme='dark_teal.xml', extra=extra_dark, invert_secondary=False)
 
 stylesheet = app.styleSheet()
-with open('../stylesheets/Qt_Material/custom_dark.css') as file:
+with open('stylesheets/Qt_Material/custom_dark.css') as file:
     app.setStyleSheet(stylesheet + file.read().format(**os.environ))
 
 ###app.setStyleSheet(qdarkstyle.load_stylesheet())
