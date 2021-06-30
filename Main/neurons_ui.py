@@ -251,7 +251,7 @@ class EditHiddenLayerPopupWindow(QWidget):
         #set bold text
         myFont = QFont()
         myFont.setBold(True)
-        self.noteName = QLabel("\nNote: layer name must be unique and can't contain spaces.\n")
+        self.noteName = QLabel("\nNote: layer name must be unique and can't contain spaces, parenthesis or brackets.\n")
         self.noteName.setFont(myFont)
 
         self.label = QLabel("Edit " + self.itemName + " properties.")
@@ -1153,7 +1153,7 @@ def update_hiddenLayersList():
 
 def validLayerName(string, currentName=None):
     """Checks if layer name is valid
-    - no spaces
+    - no spaces, parenthesis () or brackets []
     - no repeated layer names (including 'input' and 'output')
      """
     valid = True
@@ -1166,6 +1166,14 @@ def validLayerName(string, currentName=None):
         if string == 'output' or string == 'input':
             valid = False
         if " " in string:
+            valid = False
+        if "(" in string:
+            valid = False
+        if ")" in string:
+            valid = False
+        if "[" in string:
+            valid = False
+        if "]" in string:
             valid = False
         #Check for other layers other than itself
         elif layer.name != currentName:
