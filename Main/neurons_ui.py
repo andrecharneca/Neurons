@@ -125,6 +125,7 @@ class EditInputLayerPopupWindow(QWidget):
 
         self.neurons = QSpinBox(self)
         self.neurons.setValue(model.layers[0].units)
+        self.neurons.setMaximum(10000)
         self.neurons.setMinimum(0)
         self.neuronsLabel = QLabel("Neurons:",self)
 
@@ -241,6 +242,7 @@ class EditHiddenLayerPopupWindow(QWidget):
 
         self.neurons = QSpinBox(self)
         self.neurons.setValue(current_neurons)
+        self.neurons.setMaximum(10000)
         self.neurons.setMinimum(0)
         self.neuronsLabel = QLabel("Neurons:",self)
 
@@ -314,6 +316,7 @@ class AddHiddenLayerPopupWindow(QWidget):
 
         self.neurons = QSpinBox(self)
         self.neurons.setValue(10)
+        self.neurons.setMaximum(10000)
         self.neurons.setMinimum(0)
         self.neuronsLabel = QLabel("Neurons:",self)
 
@@ -597,13 +600,17 @@ class TestPopupWindow(QWidget):
         global outputFile_path
 
         textBrowser.clear()
-        textBrowser.append(
-            "Testing model with data from " + testFile_path + ". \nNote: This Evaluates the model, therefore the file should include input and output data.")
-
+        textBrowser.append("Loading dataset...\n")
         testData = loadtxt(testFile_path, delimiter=',')
         input = testData[:, inputCol_start:inputCol_end + 1]
         output = testData[:, outputCol_start:outputCol_end + 1]
         output_dim = outputCol_end - outputCol_start + 1
+
+        textBrowser.append("Dataset loaded.\n")
+
+        textBrowser.append(
+            "Testing model with data from " + testFile_path + ". \nNote: This Evaluates the model, therefore the file should include input and output data.\n")
+
         losses, metrics = model.evaluate(input, output, verbose=0)
 
         textBrowser.append("\nModel tested.")
@@ -914,6 +921,7 @@ class train_model_worker(QObject):
         self.batch_size = batch_size_in
     def run(self):
         """Train the model with given parameters """
+        self.progress.emit("Loading dataset...\n")
         _, columns = read_file(trainFile_path, ',')
         global is_training
         global is_trained
@@ -924,6 +932,8 @@ class train_model_worker(QObject):
         trainData = loadtxt(trainFile_path, delimiter=',')
         input = trainData[:, inputCol_start:inputCol_end + 1]
         output = trainData[:, outputCol_start:outputCol_end + 1]
+
+        self.progress.emit("Dataset loaded.\n")
 
         # compile Keras model
         self.progress.emit("Compiling model...\n")
