@@ -621,7 +621,7 @@ class TestPopupWindow(QWidget):
 
         if is_valid:
             textBrowser.append("\nModel tested.\n")
-            textBrowser.append('Loss = %.4f' % (model.metrics_names[0], losses))
+            textBrowser.append('Loss = %.4f' % (losses))
             textBrowser.append('%s = %.4f\n' % (model.metrics_names[1], metrics))
 
             #checkbox options
