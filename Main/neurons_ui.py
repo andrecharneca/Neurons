@@ -7,8 +7,6 @@ import subprocess
 import qdarkstyle
 import tensorflow as tf
 from tensorflow import keras
-"""from keras.models import Sequential
-from keras.layers import Dense"""
 from numpy import loadtxt
 import numpy as np
 import time as time
@@ -17,6 +15,9 @@ import ntpath
 import os
 import matplotlib.pyplot as plt
 import webbrowser
+from texttable import Texttable
+"""from keras.models import Sequential
+from keras.layers import Dense"""
 
 ## Popup Window ##
 
@@ -88,7 +89,7 @@ class NewModelPopupWindow(QWidget):
         #Change output settings for Delete and Add buttons
         model.add(tf.keras.layers.Dense(outputDim, activation ='relu', name = 'output')) #name = 'dense' by default, then 'dense_1', etc
         output_layer_settingsDict["units"] = outputDim
-        output_layer_settingsDict["activation"] = "ReLu"
+        output_layer_settingsDict["activation"] = tf.keras.activations.relu
 
         hidden_layers.append(model.layers[1])
         update_hiddenLayersList()
@@ -287,6 +288,7 @@ class EditHiddenLayerPopupWindow(QWidget):
             self.listItem.setText(self.lineEdit.text())
 
             print(layer.get_config())###
+            print(model.summary())###
             is_trained = False
             self.close()
         else:
@@ -352,23 +354,29 @@ class AddHiddenLayerPopupWindow(QWidget):
     def add_layer(self):
         global model
         global list_layers
+        global output_layer_settingsDict
+
         if validLayerName(self.lineEdit.text()):
-            #First pop output layer
+            # Save output layer settings
+            output_layer_settingsDict["units"] = model.layers[-1].units
+            output_layer_settingsDict["activation"] = model.layers[-1].activation
+
+            # First pop output layer
             model.pop()
 
-            #Add new layer
+            # Add new layer
             model.add(tf.keras.layers.Dense(units = self.neurons.value(), activation = 'relu'))
             layer = model.layers[-1]
             layer.activation = activationFunctionDict[self.activationFunction.currentText()]
             layer._name = self.lineEdit.text()
-            #Add listItem to list
+            # Add listItem to list
             hidden_layers.append(model.get_layer(layer.name))
             list_layers.addItem(layer.name)
             update_hiddenLayersList()
 
-            #ReAdd output layer
+            # ReAdd output layer
             model.add(tf.keras.layers.Dense(output_layer_settingsDict["units"], activation = 'relu'))
-            model.layers[-1].activation = activationFunctionDict[output_layer_settingsDict["activation"]]
+            model.layers[-1].activation = output_layer_settingsDict["activation"]
             model.layers[-1]._name = 'output'
 
             print(model.summary())###
@@ -1132,8 +1140,15 @@ def edit_hiddenLayer():
 
 def delete_hiddenLayer():
     global model
+    global output_layer_settingsDict
+
     if validModel():
         if len(hidden_layers)!=0:
+
+            # Save output layer settings
+            output_layer_settingsDict["units"] = model.layers[-1].units
+            output_layer_settingsDict["activation"] = model.layers[-1].activation
+
             #Pops output AND last top layer in stack
             model.pop()
             model.pop()
@@ -1142,8 +1157,7 @@ def delete_hiddenLayer():
 
             #ReAdd output layer
             model.add(tf.keras.layers.Dense(output_layer_settingsDict["units"], name = 'output'))
-            model.layers[-1].activation = activationFunctionDict[output_layer_settingsDict["activation"]]
-
+            model.layers[-1].activation = output_layer_settingsDict["activation"]
 
             print(model.summary())###
 
@@ -1261,6 +1275,7 @@ def load_model():
     global hidden_layers
     global model
     global is_trained
+    global model_name
     """Load model from path"""
     load_path, _ = QFileDialog.getOpenFileName(None,
                                           "Load model from file",
@@ -1293,10 +1308,10 @@ def load_model():
         textBrowser.append("Model loaded successfully.")
         textBrowser.append("\nModel summary:\n")
         #print model summary to textbrowser
-        stringlist = []
+        """stringlist = []
         model.summary(print_fn=lambda x: stringlist.append(x))
-        short_model_summary = "\n".join(stringlist)
-        textBrowser.append(short_model_summary)
+        short_model_summary = "\n".join(stringlist)"""
+        textBrowser.append(model_summary() + "\n")
         print(model.summary()) ###
 
     elif not validLoadModel(load_path):
@@ -1326,15 +1341,35 @@ def validLoadModel(path):
 def open_website():
     webbrowser.open('https://sites.google.com/view/neuronsweb')
 
+def model_summary():
+    """Prints a better version of the model summary, includes
+    Layers: name, units, activation"""
+    global model
+    table = Texttable()
+    table_rows = []
+    table_rows.append(["Layer", "Units", "Activation"])
+
+    for layer in model.layers:
+        temp = [layer._name, layer.units, inv_activationFunctionDict[layer.activation]]
+        table_rows.append(temp)
+
+    table.add_rows(table_rows)
+    table.set_deco(Texttable.HEADER)
+    return table.draw()
+
 def print_model_summary():
     """ Print Model summary to output textBrowser"""
+    global model
+    global model_name
     if validModel():
-        textBrowser.append("\nModel summary:\n")
+        """textBrowser.append("\nModel summary:\n")
         # print model summary to textbrowser
         stringlist = []
         model.summary(print_fn=lambda x: stringlist.append(x))
         short_model_summary = "\n".join(stringlist)
-        textBrowser.append(short_model_summary)
+        textBrowser.append(short_model_summary)"""
+        textBrowser.append("Model name: " + model_name + "\n")
+        textBrowser.append(model_summary() + "\n")
     elif not validModel():
         textBrowser.append("\nNo valid model selected.\n")
 
@@ -1421,7 +1456,8 @@ activationFunctionList_lowercase = ["relu", "sigmoid", "softmax", "softplus", "s
 activationFunctionDict = {"ReLu": tf.keras.activations.relu, "Sigmoid": tf.keras.activations.sigmoid, "SoftMax": tf.keras.activations.softmax,
                           "SoftPlus": tf.keras.activations.softplus, "SoftSign": tf.keras.activations.softsign, "Tanh": tf.keras.activations.tanh,
                           "SeLu": tf.keras.activations.selu, "Elu": tf.keras.activations.elu, "Exponential": tf.keras.activations.exponential}
-output_layer_settingsDict = {"units": 0, "activation": "ReLu"} #To save output settings for Add and Delete button methods
+inv_activationFunctionDict = {value:key for key, value in activationFunctionDict.items()} # Invert dict values
+output_layer_settingsDict = {"units": 0, "activation": tf.keras.activations.relu} #To save output settings for Add and Delete button methods
 optimizerList = ['Adam', 'SGD', 'RMSprop', 'Adadelta', 'Adagrad', 'Adamax', 'Nadam', 'Ftrl']
 lossFunctionList = ['Mean Squared Error','Mean Squared Logarithmic Error', 'Huber', 'Binary Crossentropy', 'Categorical Crossentropy']
 lossFunctionList_lowercase = ['mean_squared_error','mean_squared_logarithmic_error', 'huber_loss','binary_crossentropy','categorical_crossentropy']
