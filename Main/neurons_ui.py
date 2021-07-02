@@ -18,14 +18,6 @@ import os
 import matplotlib.pyplot as plt
 import webbrowser
 
-def resource_path(relative_path):
-    """ Get the absolute path to the resource, for dev and PyInstaller"""
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
 ## Popup Window ##
 
 class NewModelPopupWindow(QWidget):
@@ -598,6 +590,7 @@ class TestPopupWindow(QWidget):
         """test model"""
         global model
         global outputFile_path
+        is_valid = True # In case there's an error testing, this breaks this process
 
         textBrowser.clear()
         textBrowser.append("Loading dataset...\n")
@@ -609,61 +602,68 @@ class TestPopupWindow(QWidget):
         textBrowser.append("Dataset loaded.\n")
 
         textBrowser.append(
-            "Testing model with data from " + testFile_path + ". \nNote: This Evaluates the model, therefore the file should include input and output data.\n")
+            "Testing model with data from " + testFile_path + ". \nNote: This Evaluates the model, the file should include input and output data. Make sure the model is already trained\n")
+        try:
+            # If this fails, it's probably because it's a loaded, non-trained model.
+            losses, metrics = model.evaluate(input, output, verbose=0)
+        except RuntimeError:
+            is_valid = False
+            error = QMessageBox.warning(None, "Error", "\n   Testing failed. Check if the model is trained and try again.   \n")
 
-        losses, metrics = model.evaluate(input, output, verbose=0)
 
-        textBrowser.append("\nModel tested.")
+        if is_valid:
+            textBrowser.append("\nModel tested.\n")
+            textBrowser.append('Loss = %.4f' % (model.metrics_names[0], losses))
+            textBrowser.append('%s = %.4f\n' % (model.metrics_names[1], metrics))
 
-        #checkbox options
-        if self.check_output_predicted_correct.isChecked():
-            predictions = model.predict(input)
+            #checkbox options
+            if self.check_output_predicted_correct.isChecked():
+                predictions = model.predict(input)
 
-            #Switch columns and lines on output
-            output_formatted = []
-            predictions_formatted =[]
-            for columns in range(output_dim):
-                temp_row_output = []
-                temp_row_predictions = []
-                for rows in range(len(output)):
-                    temp_row_output.append(output[rows][columns])
-                    temp_row_predictions.append(predictions[rows][columns])
-                output_formatted.append(temp_row_output)
-                predictions_formatted.append(temp_row_predictions)
+                #Switch columns and lines on output
+                output_formatted = []
+                predictions_formatted =[]
+                for columns in range(output_dim):
+                    temp_row_output = []
+                    temp_row_predictions = []
+                    for rows in range(len(output)):
+                        temp_row_output.append(output[rows][columns])
+                        temp_row_predictions.append(predictions[rows][columns])
+                    output_formatted.append(temp_row_output)
+                    predictions_formatted.append(temp_row_predictions)
 
-            #Show plot for each output
-            for i in range(output_dim):
-                xrangesize = max(output_formatted[i]) - min(output_formatted[i])
-                yrangesize = max(predictions_formatted[i]) - min(predictions_formatted[i])
+                #Show plot for each output
+                for i in range(output_dim):
+                    xrangesize = max(output_formatted[i]) - min(output_formatted[i])
+                    yrangesize = max(predictions_formatted[i]) - min(predictions_formatted[i])
 
-                x = np.linspace(min(output_formatted[i]) - xrangesize/10,max(output_formatted[i]) + xrangesize/10,100)
+                    x = np.linspace(min(output_formatted[i]) - xrangesize/10,max(output_formatted[i]) + xrangesize/10,100)
 
-                plt.figure()
-                plt.plot(output_formatted[i], predictions_formatted[i],'b.', label = "Results Output " + str(i+1))
-                plt.plot(x,x,'--g', label = "Predicted = True")
-                plt.xlim([min(output_formatted[i]) - xrangesize/10,max(output_formatted[i]) + xrangesize/10])
-                plt.ylim([min(predictions_formatted[i]) - yrangesize/10,max(predictions_formatted[i]) + yrangesize/10])
-                plt.title("True vs Predicted Output " + str(i+1))
-                plt.xlabel("True Output")
-                plt.ylabel("Predicted Output")
-                plt.legend()
+                    plt.figure()
+                    plt.plot(output_formatted[i], predictions_formatted[i],'b.', label = "Results Output " + str(i+1))
+                    plt.plot(x,x,'--g', label = "Predicted = True")
+                    plt.xlim([min(output_formatted[i]) - xrangesize/10,max(output_formatted[i]) + xrangesize/10])
+                    plt.ylim([min(predictions_formatted[i]) - yrangesize/10,max(predictions_formatted[i]) + yrangesize/10])
+                    plt.title("True vs Predicted Output " + str(i+1))
+                    plt.xlabel("True Output")
+                    plt.ylabel("Predicted Output")
+                    plt.legend()
 
-            plt.show()
-        if outputFile_path != None and outputFile_path != '.txt':
-            outputFile = open(outputFile_path, "w")
-            predictions = model.predict(input)
-            for j in range(len(predictions[0])):
-                outputFile.write("Output " + str(j+1))
-                if j < len(predictions[0]) - 1:
-                    outputFile.write(",")
-
-            for i in range(len(predictions)):
-                outputFile.write("\n")
+                plt.show()
+            if outputFile_path != None and outputFile_path != '.txt':
+                outputFile = open(outputFile_path, "w")
+                predictions = model.predict(input)
                 for j in range(len(predictions[0])):
-                    outputFile.write(str(predictions[i][j]))
+                    outputFile.write("Output " + str(j+1))
                     if j < len(predictions[0]) - 1:
                         outputFile.write(",")
 
+                for i in range(len(predictions)):
+                    outputFile.write("\n")
+                    for j in range(len(predictions[0])):
+                        outputFile.write(str(predictions[i][j]))
+                        if j < len(predictions[0]) - 1:
+                            outputFile.write(",")
         self.close()
 
 class PredictPopupWindow(QWidget):
@@ -721,44 +721,54 @@ class PredictPopupWindow(QWidget):
         global model
         global predict_outputsFile_path
         global predictFile_path
+        is_valid = True # In case there's an error testing, this breaks this process
 
         if predict_outputsFile_path != None and predict_outputsFile_path != '.txt':
             #info for textbrowser
             textBrowser.clear()
-            textBrowser.append(
-                "Predicting outputs with current model with data from " + predictFile_path + ". \nNote: This uses the Predict method on the model, therefore the file should only input data is used.")
 
             #Predict
+            textBrowser.append("Loading dataset...\n")
             predictData = loadtxt(predictFile_path, delimiter=',')
+            textBrowser.append("Dataset loaded.\n")
+
+            textBrowser.append(
+                "Predicting outputs with current model with data from " + predictFile_path + ". \nNote: This uses the Predict method on the model, so the file should only input data is used.\nMake sure the model is trained already.\n")
+
             input = predictData[:, inputCol_start:inputCol_end + 1]
-            predictions = model.predict(input)
-
-            #Write to file
-            outputFile = open(predict_outputsFile_path, "w")
-            for j in range(len(predictions[0])):
-                outputFile.write("Output " + str(j + 1))
-                if j < len(predictions[0]) - 1:
-                    outputFile.write(",")
-
-            for i in range(len(predictions)):
-                outputFile.write("\n")
+            try:
+                predictions = model.predict(input)
+            except RuntimeError:
+                is_valid = False
+                error = QMessageBox.warning(None, "Error",
+                                            "\n   Predict failed. Check if the model is trained and try again.   \n")
+            if is_valid:
+                #Write to file
+                outputFile = open(predict_outputsFile_path, "w")
                 for j in range(len(predictions[0])):
-                    outputFile.write(str(predictions[i][j]))
+                    outputFile.write("Output " + str(j + 1))
                     if j < len(predictions[0]) - 1:
                         outputFile.write(",")
 
-            textBrowser.append("\nPredicted outputs generated and output to: " + predict_outputsFile_path + ".")
+                for i in range(len(predictions)):
+                    outputFile.write("\n")
+                    for j in range(len(predictions[0])):
+                        outputFile.write(str(predictions[i][j]))
+                        if j < len(predictions[0]) - 1:
+                            outputFile.write(",")
 
-            # show examples of outputs in main window
-            if self.show_outputs_in_textBrowser.isChecked():
-                textBrowser.append('\nHere are some examples of predictions made with the model: \n')
-                sample_number = int(len(input) / 10) + 1 if int(len(input) / 10) + 1 <= 10 else 10
+                textBrowser.append("\nPredicted outputs generated and output to: " + predict_outputsFile_path + ".")
 
-                for i in range(sample_number):
-                    k = np.random.randint(len(input) - 1)
-                    textBrowser.append(
-                        "Input: " + str(input[k].tolist()) + ' -> Output: ' + str(predictions[k]))
-            self.close()
+                # show examples of outputs in main window
+                if self.show_outputs_in_textBrowser.isChecked():
+                    textBrowser.append('\nHere are some examples of predictions made with the model: \n')
+                    sample_number = int(len(input) / 10) + 1 if int(len(input) / 10) + 1 <= 10 else 10
+
+                    for i in range(sample_number):
+                        k = np.random.randint(len(input) - 1)
+                        textBrowser.append(
+                            "Input: " + str(input[k].tolist()) + ' -> Output: ' + str(predictions[k]))
+                self.close()
         else:
             error = QMessageBox.warning(None, "Error", "\n   Please select an output file.   \n")
 
@@ -1315,6 +1325,21 @@ def validLoadModel(path):
 
 def open_website():
     webbrowser.open('https://sites.google.com/view/neuronsweb')
+
+def print_model_summary():
+    """ Print Model summary to output textBrowser"""
+    if validModel():
+        textBrowser.append("\nModel summary:\n")
+        # print model summary to textbrowser
+        stringlist = []
+        model.summary(print_fn=lambda x: stringlist.append(x))
+        short_model_summary = "\n".join(stringlist)
+        textBrowser.append(short_model_summary)
+    elif not validModel():
+        textBrowser.append("\nNo valid model selected.\n")
+
+def clear_textBrowser_output():
+    textBrowser.clear()
 #Themes
 def set_darkTheme():
     apply_stylesheet(app, theme='dark_teal.xml', extra=extra_dark)
@@ -1621,6 +1646,13 @@ menuTheme_light.triggered.connect(set_lightTheme)
 menuHelp = menuBar.addMenu("&Help")
 menuHelp_website = menuHelp.addAction("Website")
 menuHelp_website.triggered.connect(open_website)
+
+menuOutput = menuBar.addMenu("&Output")
+menuOutput_printSummary = menuOutput.addAction("Print Model Summary")
+menuOutput_printSummary.triggered.connect(print_model_summary)
+menuOutput_clearOutput = menuOutput.addAction("Clear Output")
+menuOutput_clearOutput.triggered.connect(clear_textBrowser_output)
+
 ## Ordering Boxes ##
 hbox_top.addLayout(vbox_files)
 hbox_top.addLayout(vbox_spacing)
