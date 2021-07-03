@@ -1512,6 +1512,9 @@ spinBox_outputEnd.setMaximum(100000)
 textBrowser = QTextBrowser(widget)
 textBrowser.setMinimumHeight(300)
 textBrowserLabel = QLabel("Output:")
+outputFont = QFont()
+outputFont.setStyleHint(QFont.Monospace) # Monospace font so the model summary tables work
+textBrowser.setFont(outputFont)
 
 #Layers List Widget
 list_layers = QListWidget(widget)
