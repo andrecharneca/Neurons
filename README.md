@@ -1,5 +1,6 @@
 
 # Neurons
+![Neurons](https://i.imgur.com/GTsVBNN.png)
 
 Machine Learning should be accessible for everyone, including users with no programming experience. That's why __Neurons__ was created.
 __Neurons__ is a user interface for creating, training and testing Sequential models with Dense layers with the [Keras](https://keras.io/) and [Tensorflow](https://www.tensorflow.org/) packages.
