@@ -18,6 +18,8 @@ Some of the main features in __Neurons__ include:
 * Evaluate (testing) or predict with model with specified dataset. Print outputs to file.
 * Light and dark modes.
 
+## Version
+Currently on version 1.0
 
 ## Built With
 Free packages __Neurons__ is mainly based on:
