@@ -31,4 +31,4 @@ Free packages __Neurons__ is mainly based on:
 
 ## Contacts
 * André Charneca - andre.duarte222@gmail.com
-* [Neurons Website](https://sites.google.com/view/neuronsweb/home): visit for some examples on how to use program, and an introduction to Machine Learning.
+* [Neurons Website](https://sites.google.com/view/neuronsweb/home): visit for some examples on how to use the program, and an introduction to Machine Learning.
