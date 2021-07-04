@@ -27,5 +27,5 @@ Free packages __Neurons__ is mainly based on:
 * [Matplotlib](https://matplotlib.org/)
 
 ## Contacts
----André Charneca - andre.duarte222@gmail.com
----[Neurons Website](https://sites.google.com/view/neuronsweb/home)
+* André Charneca - andre.duarte222@gmail.com
+* [Neurons Website](https://sites.google.com/view/neuronsweb/home): visit for some examples on how to use program, and an introduction to Machine Learning.
