@@ -979,8 +979,10 @@ def test_model_button():
     outputFile_path = None
 
     try: testData, columns = read_file(testFile_path, ',')
-    except:
-        pass
+    except: # Error if file is invalid (has letter for example)
+        error = QMessageBox.warning(None, "Error", "\n   Invalid Test file.   \n")
+        return False
+
     if not is_training and is_trained and validPath(testFile_path) and validColumns(inputCol_start, inputCol_end, outputCol_start, outputCol_end, columns) \
             and validInputOutputShapes():
         global testPopup
@@ -1005,6 +1007,7 @@ def test_model_button():
 
     elif not is_trained:
         error = QMessageBox.warning(None, "Error", "\n   Model not yet trained.   \n")
+    return True
 
 def predict_button():
     """Predict button function"""
@@ -1014,7 +1017,9 @@ def predict_button():
 
     try: predictData, columns = read_file(predictFile_path, ',')
     except:
-        pass
+        error = QMessageBox.warning(None, "Error", "\n   Invalid Predict file.   \n")
+        return False
+
     if not is_training and is_trained and validPath(predictFile_path) and validPredictColumns(inputCol_start, inputCol_end, columns)\
             and validInputShape():
         global predictPopup
@@ -1039,6 +1044,8 @@ def predict_button():
 
     elif not is_trained:
         error = QMessageBox.warning(None, "Error", "\n   Model not yet trained.   \n")
+
+    return True
 
 def validColumns(inputStart, inputEnd,outputStart, outputEnd, totalCols):
     """Checks if input/output columns are valid"""
@@ -1196,8 +1203,8 @@ def validLayerName(string, currentName=None):
     if string == currentName and currentName!=None:
         #If the name is unchanged it's okay
         return True
-    for layer in hidden_layers:
-        if string == 'output' or string == 'input':
+    else:
+        if string == "":
             valid = False
         if " " in string:
             valid = False
@@ -1211,14 +1218,13 @@ def validLayerName(string, currentName=None):
             valid = False
         if "," in string:
             valid = False
+        if string == 'output' or string == 'input':
+            valid = False
 
-        #Check for other layers other than itself
-        elif layer.name != currentName:
+        for layer in hidden_layers:
+            # Check for other layers other than itself
             if layer.name == string:
                 valid = False
-        if valid == False:
-            break
-
 
     return valid
 
@@ -1236,7 +1242,8 @@ def new_model():
     """creates new model"""
     try: trainData, columns = read_file(trainFile_path, ',')
     except:
-        pass
+        error = QMessageBox.warning(None, "Error", "\n   Invalid Train file.   \n")
+        return False
 
     if validPath(trainFile_path) and validColumns(inputCol_start, inputCol_end, outputCol_start, outputCol_end, columns):
 
@@ -1252,7 +1259,7 @@ def new_model():
         error = QMessageBox.warning(None, "Error", "\n   Please select a training file.   \n")
     else:
         error = QMessageBox.warning(None, "Error", "\n   Invalid input or output columns.   \n")
-
+    return True
 def save_model():
     """Save model function (currently only trained models)"""
     if validModel() and is_trained and not is_training:
