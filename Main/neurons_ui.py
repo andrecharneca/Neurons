@@ -743,26 +743,39 @@ class PredictPopupWindow(QWidget):
             textBrowser.append(
                 "Predicting outputs with current model with data from " + predictFile_path + ". \nNote: This uses the Predict method on the model, so the file should only input data is used.\nMake sure the model is trained already.\n")
 
-            input = predictData[:, inputCol_start:inputCol_end + 1]
+            try:
+                input = predictData[:, inputCol_start:inputCol_end + 1]
+                number_samples = len(input) # Number of samples in file
+                print(input)###
+
+            except: # In case file has only 1 sample
+
+                # Note: because predict wont accept only 1 sample, we duplicate it and only show 1 of them to user
+                input = np.array([predictData[inputCol_start:inputCol_end + 1], predictData[inputCol_start:inputCol_end + 1]])
+                print(input)###
+                number_samples = 1 # Number of samples in file
             try:
                 predictions = model.predict(input)
+
             except RuntimeError:
                 is_valid = False
                 error = QMessageBox.warning(None, "Error",
                                             "\n   Predict failed. Check if the model is trained and try again.   \n")
             if is_valid:
+                #Get prediction shapes
+                number_outputs = np.shape(predictions)[1] # Number of output variables
                 #Write to file
                 outputFile = open(predict_outputsFile_path, "w")
-                for j in range(len(predictions[0])):
+                for j in range(number_outputs):
                     outputFile.write("Output " + str(j + 1))
-                    if j < len(predictions[0]) - 1:
+                    if j < number_outputs - 1:
                         outputFile.write(",")
 
-                for i in range(len(predictions)):
+                for i in range(number_samples):
                     outputFile.write("\n")
-                    for j in range(len(predictions[0])):
+                    for j in range(number_outputs):
                         outputFile.write(str(predictions[i][j]))
-                        if j < len(predictions[0]) - 1:
+                        if j < number_outputs - 1:
                             outputFile.write(",")
 
                 textBrowser.append("\nPredicted outputs generated and output to: " + predict_outputsFile_path + ".")
@@ -770,7 +783,7 @@ class PredictPopupWindow(QWidget):
                 # show examples of outputs in main window
                 if self.show_outputs_in_textBrowser.isChecked():
                     textBrowser.append('\nHere are some examples of predictions made with the model: \n')
-                    sample_number = int(len(input) / 10) + 1 if int(len(input) / 10) + 1 <= 10 else 10
+                    sample_number = number_samples if number_samples <= 10 else 10
 
                     for i in range(sample_number):
                         k = np.random.randint(len(input) - 1)
@@ -1021,7 +1034,7 @@ def predict_button():
         return False
 
     if not is_training and is_trained and validPath(predictFile_path) and validPredictColumns(inputCol_start, inputCol_end, columns)\
-            and validInputShape():
+            and validInputShape() and validModel():
         global predictPopup
         predictPopup = PredictPopupWindow()
         predictPopup.setGeometry(QRect(400, 400, 300, 100))
@@ -1029,6 +1042,9 @@ def predict_button():
         predictPopup.setWindowIcon(QIcon(icon_path))
 
         predictPopup.show()
+
+    elif not validModel():
+        error = QMessageBox.warning(None, "Error", "\n   Invalid model.   \n")
 
     elif not validPath(predictFile_path):
         error = QMessageBox.warning(None, "Error", "\n   Please select a file with inputs to predict.   \n")
